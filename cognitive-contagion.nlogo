@@ -39,7 +39,6 @@ citizens-own [
   brain
   messages-heard
   messages-believed
-  is-flint?
 ]
 
 medias-own [
@@ -138,12 +137,10 @@ to create-citizen [ id prior-vals malleable-vals ]
     set brain b
     set messages-heard []
     set messages-believed []
-    set is-flint? false
 
     ; TODO: Get rid of this once we have different network structure
     let rand random-float 1
     if rand <= 0.1 [
-      set is-flint? true
       set brain create-agent-brain id citizen-priors citizen-malleables prior-vals malleable-vals
     ]
 
@@ -203,7 +200,6 @@ to create-media
       setxy random-xcor random-ycor
       set color green
       set idee "THR"
-      ;Cat's bug exp
       set messages-heard []
       set messages-believed []
     ]
