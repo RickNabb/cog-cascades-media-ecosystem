@@ -46,6 +46,7 @@ medias-own [
   brain
   messages-heard
   messages-believed
+  messages-sent
 ]
 
 breed [ medias media ]
@@ -83,6 +84,11 @@ to setup
     connect-media
   ] [
     read-graph
+  ]
+
+  ;; Load message data sets to be used by influencer agents
+  if media-agents? [
+    set messages-over-time load-messages-over-time (word messages-data-path "/") (word message-file ".json")
   ]
 
   ;; Layout turtles
@@ -191,9 +197,10 @@ to create-media
       ;setxy 0 1
       setxy random-xcor random-ycor
       set color green
-      set idee "THR"
+      set idee "BEL"
       set messages-heard []
       set messages-believed []
+      set messages-sent []
       set id id + 1
     ]
   ]
@@ -395,6 +402,22 @@ to go
 end
 
 to step
+  if media-agents? [
+    ;; Have media companies create messages
+    let messages (dict-value messages-over-time (word ticks))
+    foreach messages [ media-messages ->
+      let media-idee item 0 media-messages
+      foreach (item 1 media-messages) [ m ->
+        ;; TODO: Fix this so it's not hardcoded to just be "A"
+        ask medias with [ idee = media-idee ] [
+          let a (dict-value m "A")
+          repeat message-repeats [
+            send-media-message-to-subscribers self (list (list "A" a))
+          ]
+        ]
+      ]
+    ]
+  ]
   if contagion-on? [
     ;; In the case where we do not have influencer agents, simply do a contagion from the agent perspective
     ask citizens with [ not is-agent-brain-empty? self ] [
@@ -437,7 +460,7 @@ end
 to send-media-message-to-subscribers [ m message ]
   ask m [
     let mid cur-message-id
-;    set messages-sent (lput (list mid message) messages-sent)
+    set messages-sent (lput (list mid message) messages-sent)
     ask my-subscribers [
       ask other-end [
         receive-message self m message mid
@@ -747,6 +770,15 @@ end
 
 ;; NOTE: For procedures that simply report back what comes from a python function, please refer
 ;; to the python function itself for function details.
+
+to-report load-messages-over-time [ path filename ]
+  if not file-exists? (word path "/" belief-resolution) [
+    error "Messaging directory does not exist for current resolution"
+  ]
+  report py:runresult(
+    word "read_message_over_time_data('" path "/" belief-resolution "/" filename "')"
+  )
+end
 
 to-report sample-attr-dist [ attr ]
   report py:runresult(
@@ -1315,10 +1347,10 @@ NIL
 0
 
 SLIDER
-537
-652
-667
-685
+538
+743
+668
+776
 threshold
 threshold
 0
@@ -1373,10 +1405,10 @@ NIL
 1
 
 TEXTBOX
-27
-345
-177
-363
+28
+444
+178
+462
 Number of citizens
 11
 0.0
@@ -1423,10 +1455,10 @@ Simulation State Plots
 1
 
 SLIDER
-253
-369
-425
-402
+254
+472
+426
+505
 N
 N
 0
@@ -1499,13 +1531,13 @@ Aggregate Charts
 
 CHOOSER
 330
-703
+794
 472
-748
+839
 spread-type
 spread-type
 "simple" "complex" "cognitive"
-1
+2
 
 TEXTBOX
 302
@@ -1518,10 +1550,10 @@ Display
 1
 
 SWITCH
-27
-370
-146
-403
+28
+472
+147
+505
 load-graph?
 load-graph?
 1
@@ -1529,10 +1561,10 @@ load-graph?
 -1000
 
 INPUTBOX
-25
-409
-240
-469
+26
+512
+241
+572
 load-graph-path
 ./exp1-graph.csv
 1
@@ -1540,10 +1572,10 @@ load-graph-path
 String
 
 INPUTBOX
-27
-475
-242
-535
+28
+577
+243
+637
 save-graph-path
 ./exp1-graph.csv
 1
@@ -1568,25 +1600,25 @@ NIL
 1
 
 CHOOSER
-19
-702
-172
-747
+20
+793
+173
+838
 cognitive-fn
 cognitive-fn
 "linear-gullible" "linear-stubborn" "linear-mid" "threshold-gullible" "threshold-mid" "threshold-stubborn" "sigmoid-gullible" "sigmoid-stubborn" "sigmoid-mid"
 7
 
 SLIDER
-165
-648
-339
-681
+166
+739
+340
+772
 simple-spread-chance
 simple-spread-chance
 0
 1
-0.59
+0.15
 0.01
 1
 NIL
@@ -1594,9 +1626,9 @@ HORIZONTAL
 
 SLIDER
 350
-648
+739
 524
-681
+772
 complex-spread-ratio
 complex-spread-ratio
 0
@@ -1608,10 +1640,10 @@ NIL
 HORIZONTAL
 
 CHOOSER
-184
-703
-323
-748
+185
+794
+324
+839
 brain-type
 brain-type
 "discrete" "continuous"
@@ -1695,9 +1727,9 @@ media-agents?
 
 SLIDER
 20
-792
+883
 193
-825
+916
 cognitive-exponent
 cognitive-exponent
 -10
@@ -1710,9 +1742,9 @@ HORIZONTAL
 
 SLIDER
 20
-752
+843
 193
-785
+876
 cognitive-scalar
 cognitive-scalar
 -20
@@ -1725,9 +1757,9 @@ HORIZONTAL
 
 SWITCH
 200
-752
+843
 345
-785
+876
 cognitive-scalar?
 cognitive-scalar?
 1
@@ -1735,10 +1767,10 @@ cognitive-scalar?
 -1000
 
 SWITCH
-203
-793
-368
-826
+204
+884
+369
+917
 cognitive-exponent?
 cognitive-exponent?
 0
@@ -1747,9 +1779,9 @@ cognitive-exponent?
 
 SLIDER
 20
-837
+928
 193
-870
+961
 cognitive-translate
 cognitive-translate
 -10
@@ -1761,10 +1793,10 @@ NIL
 HORIZONTAL
 
 SWITCH
-203
-837
-366
-870
+204
+928
+367
+961
 cognitive-translate?
 cognitive-translate?
 0
@@ -1772,30 +1804,30 @@ cognitive-translate?
 -1000
 
 TEXTBOX
-23
-624
-211
-647
+24
+715
+212
+738
 Contagion Parameters
 11
 0.0
 1
 
 CHOOSER
-255
-410
-394
-455
+256
+512
+395
+557
 graph-type
 graph-type
 "erdos-renyi" "watts-strogatz" "barabasi-albert" "mag" "facebook" "kronecker"
 0
 
 SLIDER
-437
-369
-560
-402
+438
+472
+561
+505
 erdos-renyi-p
 erdos-renyi-p
 0
@@ -1817,20 +1849,20 @@ Influencer Parameters
 1
 
 TEXTBOX
-28
-324
-216
-347
+29
+423
+217
+446
 Graph Parameters
 11
 0.0
 1
 
 SLIDER
-564
-369
-698
-402
+565
+472
+699
+505
 watts-strogatz-p
 watts-strogatz-p
 0
@@ -1842,10 +1874,10 @@ NIL
 HORIZONTAL
 
 SLIDER
-565
-409
-692
-442
+566
+512
+693
+545
 watts-strogatz-k
 watts-strogatz-k
 0
@@ -1857,10 +1889,10 @@ NIL
 HORIZONTAL
 
 SLIDER
-435
-483
-560
-516
+436
+585
+561
+618
 ba-m
 ba-m
 0
@@ -1872,33 +1904,33 @@ NIL
 HORIZONTAL
 
 TEXTBOX
-437
-460
-625
-483
+438
+562
+626
+585
 Barabasi-Albert (ba)
 11
 0.0
 1
 
 CHOOSER
-564
-472
-703
-517
+565
+574
+704
+619
 mag-style
 mag-style
 "default" "homophilic" "heterophilic"
 0
 
 SWITCH
-24
-648
-157
-681
+25
+739
+158
+772
 contagion-on?
 contagion-on?
-0
+1
 1
 -1000
 
@@ -1918,10 +1950,10 @@ NIL
 HORIZONTAL
 
 SLIDER
-359
-323
-537
-356
+540
+320
+718
+353
 citizen-citizen-influence
 citizen-citizen-influence
 0
@@ -1973,10 +2005,10 @@ Link weight settings
 1
 
 INPUTBOX
-257
-489
-400
-574
+258
+592
+401
+677
 kronecker-seed
 [[0.6,0.16,0.24],\n  [0.40,0.2,0.4],\n  [0.21,0.14,0.65]]
 1
@@ -1984,10 +2016,10 @@ kronecker-seed
 String
 
 SLIDER
-256
-580
-428
-613
+257
+682
+429
+715
 kronecker-k
 kronecker-k
 0
@@ -1999,14 +2031,50 @@ NIL
 HORIZONTAL
 
 TEXTBOX
-261
-467
-411
-485
+262
+569
+412
+587
 Kronecker
 11
 0.0
 1
+
+INPUTBOX
+28
+323
+244
+383
+messages-data-path
+D:/school/grad-school/Tufts/research/cognitive-contagion/messaging-data/
+1
+0
+String
+
+SLIDER
+255
+376
+428
+410
+message-repeats
+message-repeats
+0
+10
+1.0
+1
+1
+NIL
+HORIZONTAL
+
+CHOOSER
+250
+325
+389
+371
+message-file
+message-file
+"default" "split" "gradual"
+0
 
 @#$#@#$#@
 ## WHAT IS IT?
