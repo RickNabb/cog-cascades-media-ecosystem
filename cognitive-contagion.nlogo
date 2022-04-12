@@ -963,6 +963,18 @@ to-report influencer-distance-paths [ influencer target message t ]
   )
 end
 
+;; Change a belief in the agent brain structure.
+;; @param agent-brain - The [brain] variable of the citizen agent type.
+;; @param attr - The attribute to change.
+;; @param value - The new value to update it to.
+to-report graph-homophily [ attr ]
+  let citizen-arr list-as-py-array (map [ cit -> agent-brain-as-py-dict [brain] of citizen cit ] (range N)) false
+  let edge-arr list-as-py-array (sort social-friends) true
+  report py:runresult(
+    (word "nlogo_graph_homophily(" citizen-arr "," edge-arr ",'" attr "')")
+  )
+end
+
 ;;;;;;;;;;;;;;;
 ; HELPER PROCS
 ;;;;;;;;;;;;;;;
@@ -1415,10 +1427,10 @@ Number of citizens
 1
 
 TEXTBOX
-177
-258
-343
-286
+184
+255
+350
+283
 Threshold to subscribe to media
 11
 0.0
@@ -1786,7 +1798,7 @@ cognitive-translate
 cognitive-translate
 -10
 20
-11.0
+2.0
 1
 1
 NIL
@@ -1840,10 +1852,10 @@ HORIZONTAL
 
 TEXTBOX
 27
-250
+255
 215
-273
-Influencer Parameters
+278
+Institutional Agent Parameters
 11
 0.0
 1
@@ -2074,7 +2086,7 @@ CHOOSER
 message-file
 message-file
 "default" "split" "gradual"
-0
+2
 
 @#$#@#$#@
 ## WHAT IS IT?

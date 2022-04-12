@@ -286,14 +286,54 @@ def graph_homophily(G, node_attr):
   attrs = np.array([ G.nodes[node][node_attr] for node in G.nodes ])
   adj = nx.adj_matrix(G)
   for node in G.nodes:
-    total += (adj[node] * abs(attrs - attrs[node]))[0]
-  return total/(2*len(G.nodes)**2)
+    total += (adj[node] * abs(attrs - attrs[node]))[0]/adj[node].sum()
+  return total/(len(G.nodes))
 
-def graph_polarization(G):
-  return 0
+def nlogo_graph_homophily(citizens, friend_links, node_attr):
+  G = nlogo_graph_to_nx(citizens, friend_links)
+  return graph_homophily(G, node_attr)
 
-def graph_disagreement(G):
-  return 0
+def graph_polarization(G, node_attr, max_attr_value):
+  '''
+  Take a measure of global polarization across the graph from a measure
+  motivated in Musco et al., 2018. Note that their belief model uses
+  beliefs in [0,1] so we convert node attributes to the [0,1] scale
+  for comparability purposes.
+
+  :param G: The networkx graph to take the measure on.
+  :param node_attr: The node attribute (string) to take values for. This
+  attribute must be a number.
+  :param max_attr_value: The maximum that a belief value could be (belief
+  resolution - 1).
+  '''
+  # This is done to keep the value in line w/ Musco et al. 2018's
+  # scale of belief from [0,1]
+  attrs = np.array([ G.nodes[node][node_attr] / max_attr_value for node in G.nodes ])
+  mean_centered_attrs = attrs - attrs.sum()/len(attrs)
+  return mean_centered_attrs.dot(np.transpose(mean_centered_attrs))
+
+def graph_disagreement(G, node_attr, max_attr_value):
+  '''
+  Take a measure of global disagreement across the graph from a measure
+  motivated in Musco et al., 2018. Note that their belief model uses
+  beliefs in [0,1] so we convert node attributes to the [0,1] scale
+  for comparability purposes.
+
+  :param G: The networkx graph to take the measure on.
+  :param node_attr: The node attribute (string) to take values for. This
+  attribute must be a number.
+  :param max_attr_value: The maximum that a belief value could be (belief
+  resolution - 1).
+  '''
+  total = 0
+  # This is done to keep the value in line w/ Musco et al. 2018's
+  # scale of belief from [0,1]
+  attrs = np.array([ G.nodes[node][node_attr] / max_attr_value for node in G.nodes ])
+  adj = nx.adj_matrix(G)
+  for node in G.nodes:
+    total += (adj[node] * (attrs - attrs[node])**2)[0]
+  return total/2
+  
 
 def graph_democracy(G):
   return 0
