@@ -132,17 +132,10 @@ to create-citizen-dist [ id ]
 end
 
 to create-citizen [ id prior-vals malleable-vals ]
-  let b create-agent-brain id [] [] [] []
   create-citizens 1 [
-    set brain b
+    set brain create-agent-brain id citizen-priors citizen-malleables prior-vals malleable-vals
     set messages-heard []
     set messages-believed []
-
-    ; TODO: Get rid of this once we have different network structure
-    let rand random-float 1
-    if rand <= 0.1 [
-      set brain create-agent-brain id citizen-priors citizen-malleables prior-vals malleable-vals
-    ]
 
 ;    set size 0.5
     set size 1
