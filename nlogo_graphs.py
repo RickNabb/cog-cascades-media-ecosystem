@@ -271,3 +271,29 @@ def plot_graph_communities(G, level):
   nx.draw_networkx_nodes(G, pos, partition.keys(), node_size=40, cmap=cmap, node_color=list(partition.values()))
   nx.draw_networkx_edges(G, pos, alpha=0.5)
   plt.show()
+
+def graph_homophily(G, node_attr):
+  '''
+  Takes a measure of homophily in the graph based on first-level neighbor
+  distance on a given node attribute. Details can be found in Rabb et al. 2022
+  Eq (9).
+
+  :param G: The networkx graph to take the measure on.
+  :param node_attr: The node attribute (string) to take homophily values for. This
+  attribute must be a number.
+  '''
+  total = 0
+  attrs = np.array([ G.nodes[node][node_attr] for node in G.nodes ])
+  adj = nx.adj_matrix(G)
+  for node in G.nodes:
+    total += (adj[node] * abs(attrs - attrs[node]))[0]
+  return total/(2*len(G.nodes)**2)
+
+def graph_polarization(G):
+  return 0
+
+def graph_disagreement(G):
+  return 0
+
+def graph_democracy(G):
+  return 0
