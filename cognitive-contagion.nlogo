@@ -137,8 +137,7 @@ to create-citizen [ id prior-vals malleable-vals ]
     set messages-heard []
     set messages-believed []
 
-;    set size 0.5
-    set size 1
+    set size 0.5
     setxy random-xcor random-ycor
   ]
 end
@@ -185,9 +184,9 @@ to create-media
 ;      set idee "TWO"
 ;    ]
 
+    let id 0
     create-medias 3 [
-      let b create-agent-brain 3 [] [] [] []
-      set brain b
+      set brain create-agent-brain id citizen-priors citizen-malleables [] [6]
       set cur-message-id 0
       ;setxy 0 1
       setxy random-xcor random-ycor
@@ -195,6 +194,7 @@ to create-media
       set idee "THR"
       set messages-heard []
       set messages-believed []
+      set id id + 1
     ]
   ]
 end
@@ -263,13 +263,11 @@ to connect-media
   let u 0
   ask medias [
     let m self
-    ;; TODO: This is a placeholder -- it should be changed
-    ask n-of 5 citizens [
-;      let t self
-;      if dist-to-agent-brain brain ([media-attrs] of m) <= epsilon [
-      create-subscriber-from m [ set weight media-citizen-influence ]
-;      create-subscriber-to m [ set weight citizen-media-influence ]
-;      ]
+    ask citizens [
+      if dist-between-agent-brains brain ([brain] of m) <= epsilon [
+        create-subscriber-from m [ set weight media-citizen-influence ]
+        ;      create-subscriber-to m [ set weight citizen-media-influence ]
+      ]
     ]
   ]
 end
@@ -417,6 +415,9 @@ to update-agents
   ask citizens [
     update-citizen
   ]
+  ask medias [
+    update-media
+  ]
 end
 
 ;; Update any display properties of agents
@@ -424,24 +425,27 @@ to update-citizen
   if show-citizen-political? [ give-self-ip-color ]
 end
 
-;; TODO: Remove this maybe?? If we don't need it
-;;
+;; Update any display properties of media
+to update-media
+  if show-citizen-political? [ give-self-ip-color ]
+end
+
 ;; Initiate the sending of a message from influencer agent m to its subscribers.
 ;;
 ;; @param m - The influencer agent to send the message.
 ;; @param message - The message to send.
-;to send-media-message-to-subscribers [ m message ]
-;  ask m [
-;    let mid cur-message-id
-;;    set messages-sent (lput (list mid message) messages-sent)
-;    ask my-subscribers [
-;      ask other-end [
-;        receive-message self m message mid
-;      ]
-;    ]
-;    set cur-message-id (cur-message-id + 1)
-;  ]
-;end
+to send-media-message-to-subscribers [ m message ]
+  ask m [
+    let mid cur-message-id
+;    set messages-sent (lput (list mid message) messages-sent)
+    ask my-subscribers [
+      ask other-end [
+        receive-message self m message mid
+      ]
+    ]
+    set cur-message-id (cur-message-id + 1)
+  ]
+end
 
 ;; Have a citizen agent receive a message: hear it, either believe it or not, and subsequently either
 ;; share it or not.
