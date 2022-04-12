@@ -963,15 +963,34 @@ to-report influencer-distance-paths [ influencer target message t ]
   )
 end
 
-;; Change a belief in the agent brain structure.
-;; @param agent-brain - The [brain] variable of the citizen agent type.
-;; @param attr - The attribute to change.
-;; @param value - The new value to update it to.
+;; Report the amount of homophily in the graph by measuring the average neighbor
+;; distance across the graph.
+;; @param attr - The attribute to measure homophily for.
 to-report graph-homophily [ attr ]
   let citizen-arr list-as-py-array (map [ cit -> agent-brain-as-py-dict [brain] of citizen cit ] (range N)) false
   let edge-arr list-as-py-array (sort social-friends) true
   report py:runresult(
     (word "nlogo_graph_homophily(" citizen-arr "," edge-arr ",'" attr "')")
+  )
+end
+
+;; Report the amount of polarization in the graph.
+;; @param attr - The attribute to measure polarization for.
+to-report graph-polarization [ attr ]
+  let citizen-arr list-as-py-array (map [ cit -> agent-brain-as-py-dict [brain] of citizen cit ] (range N)) false
+  let edge-arr list-as-py-array (sort social-friends) true
+  report py:runresult(
+    (word "nlogo_graph_polarization(" citizen-arr "," edge-arr ",'" attr "'," (belief-resolution - 1) ")")
+  )
+end
+
+;; Report the amount of disagreement in the graph.
+;; @param attr - The attribute to measure disagreement for.
+to-report graph-disagreement [ attr ]
+  let citizen-arr list-as-py-array (map [ cit -> agent-brain-as-py-dict [brain] of citizen cit ] (range N)) false
+  let edge-arr list-as-py-array (sort social-friends) true
+  report py:runresult(
+    (word "nlogo_graph_disagreement(" citizen-arr "," edge-arr ",'" attr "'," (belief-resolution - 1) ")")
   )
 end
 
@@ -2086,7 +2105,7 @@ CHOOSER
 message-file
 message-file
 "default" "split" "gradual"
-2
+0
 
 @#$#@#$#@
 ## WHAT IS IT?

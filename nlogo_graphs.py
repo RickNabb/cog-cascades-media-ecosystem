@@ -312,6 +312,10 @@ def graph_polarization(G, node_attr, max_attr_value):
   mean_centered_attrs = attrs - attrs.sum()/len(attrs)
   return mean_centered_attrs.dot(np.transpose(mean_centered_attrs))
 
+def nlogo_graph_polarization(citizens, friend_links, node_attr, max_attr_val):
+  G = nlogo_graph_to_nx(citizens, friend_links)
+  return graph_polarization(G, node_attr, max_attr_val)
+
 def graph_disagreement(G, node_attr, max_attr_value):
   '''
   Take a measure of global disagreement across the graph from a measure
@@ -334,6 +338,9 @@ def graph_disagreement(G, node_attr, max_attr_value):
     total += (adj[node] * (attrs - attrs[node])**2)[0]
   return total/2
   
+def nlogo_graph_disagreement(citizens, friend_links, node_attr, max_attr_val):
+  G = nlogo_graph_to_nx(citizens, friend_links)
+  return graph_disagreement(G, node_attr, max_attr_val)
 
 def graph_democracy(G):
   return 0
