@@ -96,16 +96,57 @@ AMAGDefaultTheta = lambda resolution: np.ones((resolution,resolution)) * 0.05
 AMAGHomophilicTheta = lambda resolution: np.matrix([ HomophilicThetaRow(i, resolution, 2, 50, 5) for i in range(0, resolution) ])
 AMAGHeterophilicTheta = lambda resolution: np.matrix([ HeterophilicThetaRow(i, resolution, 2, 5, 1) for i in range(0, resolution) ])
 
-def uniform_dist(resolution):
-  return math.floor(np.random.uniform(low=0, high = resolution))
+def uniform_dist_multiple(maxx, n, k):
+  '''
+  Return a series of samples drawn from a uniform distribution from [0, max] where each of en samples has k entries.
 
-def normal_dist(resolution):
+  :param maxx: The maximum to draw from.
+  :param n: The number of k entry samples to draw.
+  :param k: The number of entries per n sample.
+  '''
+  samples = [ uniform_dist(maxx, n) for i in range(k) ]
+  return [ [ samples[i][j] for i in range(k) ] for j in range(n) ]
+
+def uniform_dist(maxx, n):
+  '''
+  Draw n samples from a uniform distribution from [0, maxx]
+
+  :param maxx: The maximum to draw from.
+  :param n: The number of samples to take.
+  '''
+  return np.array(list(map(lambda el: math.floor(el), np.random.uniform(low=0, high = maxx, size=n))))
+
+def normal_dist_multiple(maxx, mean, sigma, n, k):
+  '''
+  Return a series of samples drawn from a normal distribution from
+  [0, max] with mean and std deviation specified, where each of en
+  samples has k entries.
+
+  :param maxx: The maximum to draw from.
+  :param mean: The mean of the distribution.
+  :param sigma: The standard deviation of the distribution.
+  :param n: The number of k entry samples to draw.
+  :param k: The number of entries per n sample.
+  '''
+  samples = [ normal_dist(maxx, mean, sigma, n) for i in range(k) ]
+  return [ [ samples[i][j] for i in range(k) ] for j in range(n) ]
+
+def normal_dist(maxx, mean, sigma, n):
+  '''
+  Draw n samples from a truncated normal distribution from [0, maxx]
+  with mean and sigma specified.
+
+  :param maxx: The maximum to draw from.
+  :param mean: The mean of the distribution.
+  :param sigma: The standard deviation of the distribution.
+  :param n: The number of samples to take.
+  '''
   lower=-0.5
-  upper=resolution+0.5
-  mean=math.floor(resolution/2)
-  sigma=mean/3
+  upper=maxx+0.5
+  # mean=math.floor(resolution/2)
+  # sigma=mean/3
   dist = truncnorm((lower - mean) / sigma, (upper - mean) / sigma, loc=mean, scale=sigma)
-  return round(dist.rvs(1)[0])
+  return np.array(list(map(lambda el: round(el), dist.rvs(n))))
 
 AttributeValues = {
   Attributes.A.name: {

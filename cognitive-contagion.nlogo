@@ -156,9 +156,32 @@ to create-citizenz
   ] [
     set en array_shape kronecker-seed ^ kronecker-k
   ]
-  repeat en [
-    create-citizen-dist id
+  let prior-vals (initial-belief-dist citizen-init-dist en citizen-priors)
+  let malleable-vals (initial-belief-dist citizen-init-dist en citizen-malleables)
+  create-citizens en [
+    set brain create-agent-brain id citizen-priors citizen-malleables (item id prior-vals) (item id malleable-vals)
+    set messages-heard []
+    set messages-believed []
+
+    set size 0.5
+    setxy random-xcor random-ycor
     set id id + 1
+  ]
+end
+
+;; Generate an initial belief distribution for the whole network of en agents, drawn
+;; from a distribution of dist-type for each belief in beliefs.
+;; @param dist-type - A string denoting what type of distribution to draw from.
+;; @param en - The number of agents.
+;; @param beliefs - How many belief propositions to draw for.
+;; NOTE: This assumes that each proposition in beliefs is drawn from the same
+;; kind of distribution.
+to-report initial-belief-dist [ dist-type en beliefs ]
+  if dist-type = "uniform" [
+    report uniform-dist-multiple belief-resolution en (length beliefs)
+  ]
+  if dist-type = "normal" [
+    report normal-dist-multiple belief-resolution cit-init-normal-mean cit-init-normal-std en (length beliefs)
   ]
 end
 
@@ -771,6 +794,30 @@ end
 ;; NOTE: For procedures that simply report back what comes from a python function, please refer
 ;; to the python function itself for function details.
 
+;; Return a series of samples drawn from a uniform distribution from [0, maxx]
+;; where each of en samples has k entries.
+;; @param maxx - The maximum to draw from.
+;; @param en - The number of k entry samples to draw.
+;; @param k - The number of entries per n sample.
+to-report uniform-dist-multiple [ maxx en k ]
+  report py:runresult(
+    word "uniform_dist_multiple(" maxx "," en "," k ")"
+  )
+end
+
+;; Return a series of samples drawn from a normal distribution from [0, maxx]
+;; with mean mu, std sigma; where each of en samples has k entries.
+;; @param maxx - The maximum to draw from.
+;; @param mu - The mean of the distribution.
+;; @param sigma - The std deviation of the distribution.
+;; @param en - The number of k entry samples to draw.
+;; @param k - The number of entries per n sample.
+to-report normal-dist-multiple [ maxx mu sigma en k ]
+  report py:runresult(
+    word "normal_dist_multiple(" maxx "," mu "," sigma "," en "," k ")"
+  )
+end
+
 to-report load-messages-over-time [ path filename ]
   if not file-exists? (word path "/" belief-resolution) [
     error "Messaging directory does not exist for current resolution"
@@ -1378,10 +1425,10 @@ NIL
 0
 
 SLIDER
-538
-743
-668
-776
+526
+741
+656
+774
 threshold
 threshold
 0
@@ -1393,10 +1440,10 @@ NIL
 HORIZONTAL
 
 SLIDER
-177
-278
-349
-311
+167
+312
+339
+345
 epsilon
 epsilon
 0
@@ -1436,21 +1483,21 @@ NIL
 1
 
 TEXTBOX
-28
-444
-178
-462
+409
+287
+559
+305
 Number of citizens
 11
 0.0
 1
 
 TEXTBOX
-184
-255
-350
-283
-Threshold to subscribe to media
+170
+290
+351
+318
+Threshold to subscribe to institutions
 11
 0.0
 1
@@ -1486,15 +1533,15 @@ Simulation State Plots
 1
 
 SLIDER
-254
-472
-426
-505
+408
+310
+580
+343
 N
 N
 0
 1000
-250.0
+500.0
 10
 1
 NIL
@@ -1656,10 +1703,10 @@ NIL
 HORIZONTAL
 
 SLIDER
-350
-739
-524
-772
+345
+740
+519
+773
 complex-spread-ratio
 complex-spread-ratio
 0
@@ -1747,9 +1794,9 @@ count citizens with [dict-value brain \"A\" = 6]
 
 SWITCH
 27
-275
+311
 161
-308
+344
 media-agents?
 media-agents?
 0
@@ -1840,25 +1887,25 @@ TEXTBOX
 212
 738
 Contagion Parameters
-11
+12
 0.0
 1
 
 CHOOSER
-256
-512
-395
-557
+251
+466
+390
+511
 graph-type
 graph-type
 "erdos-renyi" "watts-strogatz" "barabasi-albert" "mag" "facebook" "kronecker"
-0
+1
 
 SLIDER
-438
-472
-561
-505
+253
+537
+376
+570
 erdos-renyi-p
 erdos-renyi-p
 0
@@ -1870,30 +1917,30 @@ NIL
 HORIZONTAL
 
 TEXTBOX
-27
-255
-215
-278
+28
+273
+177
+303
 Institutional Agent Parameters
-11
+12
 0.0
 1
 
 TEXTBOX
-29
-423
-217
-446
+28
+427
+216
+450
 Graph Parameters
-11
+12
 0.0
 1
 
 SLIDER
-565
-472
-699
-505
+398
+490
+532
+523
 watts-strogatz-p
 watts-strogatz-p
 0
@@ -1905,10 +1952,10 @@ NIL
 HORIZONTAL
 
 SLIDER
-566
-512
-693
-545
+399
+530
+526
+563
 watts-strogatz-k
 watts-strogatz-k
 0
@@ -1920,10 +1967,10 @@ NIL
 HORIZONTAL
 
 SLIDER
-436
-585
-561
-618
+251
+604
+376
+637
 ba-m
 ba-m
 0
@@ -1935,20 +1982,20 @@ NIL
 HORIZONTAL
 
 TEXTBOX
-438
-562
-626
-585
+253
+581
+368
+604
 Barabasi-Albert (ba)
 11
 0.0
 1
 
 CHOOSER
-565
-574
-704
-619
+249
+672
+388
+717
 mag-style
 mag-style
 "default" "homophilic" "heterophilic"
@@ -1981,10 +2028,10 @@ NIL
 HORIZONTAL
 
 SLIDER
-540
-320
-718
-353
+550
+568
+707
+601
 citizen-citizen-influence
 citizen-citizen-influence
 0
@@ -1996,10 +2043,10 @@ NIL
 HORIZONTAL
 
 SLIDER
-359
-279
-534
-312
+551
+487
+704
+520
 citizen-media-influence
 citizen-media-influence
 0
@@ -2011,10 +2058,10 @@ NIL
 HORIZONTAL
 
 SLIDER
-541
-279
-716
-312
+551
+527
+706
+560
 media-citizen-influence
 media-citizen-influence
 0
@@ -2026,20 +2073,20 @@ NIL
 HORIZONTAL
 
 TEXTBOX
-362
-259
-512
-277
+552
+465
+702
+483
 Link weight settings
 11
 0.0
 1
 
 INPUTBOX
-258
-592
-401
-677
+398
+589
+541
+674
 kronecker-seed
 [[0.6,0.16,0.24],\n  [0.40,0.2,0.4],\n  [0.21,0.14,0.65]]
 1
@@ -2047,10 +2094,10 @@ kronecker-seed
 String
 
 SLIDER
-257
-682
-429
-715
+398
+680
+490
+713
 kronecker-k
 kronecker-k
 0
@@ -2062,10 +2109,10 @@ NIL
 HORIZONTAL
 
 TEXTBOX
-262
-569
-412
-587
+402
+570
+552
+588
 Kronecker
 11
 0.0
@@ -2073,9 +2120,9 @@ Kronecker
 
 INPUTBOX
 28
-323
+352
 244
-383
+412
 messages-data-path
 D:/school/grad-school/Tufts/research/cognitive-contagion/messaging-data/
 1
@@ -2083,10 +2130,10 @@ D:/school/grad-school/Tufts/research/cognitive-contagion/messaging-data/
 String
 
 SLIDER
-255
-376
-428
-409
+251
+402
+364
+435
 message-repeats
 message-repeats
 0
@@ -2099,9 +2146,9 @@ HORIZONTAL
 
 CHOOSER
 250
-325
+354
 389
-370
+399
 message-file
 message-file
 "default" "split" "gradual"
@@ -2160,6 +2207,106 @@ false
 "" ""
 PENS
 "default" 1.0 0 -16777216 true "" "plot graph-disagreement \"A\""
+
+TEXTBOX
+255
+517
+405
+535
+Erdos-Renyi (random)
+11
+0.0
+1
+
+TEXTBOX
+398
+466
+548
+484
+Watts-Strogatz (small world)
+11
+0.0
+1
+
+TEXTBOX
+252
+650
+402
+668
+Multiplicate Attribute Graph
+11
+0.0
+1
+
+TEXTBOX
+28
+449
+178
+467
+Saving/loading
+11
+0.0
+1
+
+TEXTBOX
+408
+267
+558
+285
+Citizen Parameters
+12
+0.0
+1
+
+CHOOSER
+407
+369
+545
+414
+citizen-init-dist
+citizen-init-dist
+"uniform" "normal"
+1
+
+TEXTBOX
+408
+352
+558
+370
+Initial belief distribution
+11
+0.0
+1
+
+SLIDER
+552
+371
+680
+404
+cit-init-normal-mean
+cit-init-normal-mean
+0
+belief-resolution
+3.0
+1
+1
+NIL
+HORIZONTAL
+
+SLIDER
+553
+410
+680
+443
+cit-init-normal-std
+cit-init-normal-std
+0
+belief-resolution / 2
+1.0
+1
+1
+NIL
+HORIZONTAL
 
 @#$#@#$#@
 ## WHAT IS IT?
