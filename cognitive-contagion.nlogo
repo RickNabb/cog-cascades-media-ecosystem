@@ -661,10 +661,18 @@ to read-graph
   let media-subs item 3 graph
 
   ;; id, a
-  foreach citizenz [ c ->
+  ;; TODO: Change this from being hard-coded for one belief "A" to being general
+  let i 0
+  create-citizens (length citizenz) [
+    let c (item i citizenz)
     let id item 0 c
     let a item 1 c
-    create-citizen id [] (list a)
+    set brain create-agent-brain id citizen-priors citizen-malleables [] (list a)
+    set messages-heard []
+    set messages-believed []
+
+    set size 0.5
+    setxy random-xcor random-ycor
   ]
 
   ;; Fudging this for the time-being since we're creating the same media every time
