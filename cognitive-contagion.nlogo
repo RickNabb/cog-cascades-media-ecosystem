@@ -1288,10 +1288,10 @@ NIL
 1
 
 PLOT
-728
-392
-1125
-585
+1170
+724
+1567
+917
 A Histogram
 A Value
 Number of Agents
@@ -1306,10 +1306,10 @@ PENS
 "default" 1.0 1 -16777216 true "" "plot-pen-reset  ;; erase what we plotted before\nset-plot-x-range -1 (belief-resolution + 1)\n\nhistogram [dict-value brain \"A\"] of citizens"
 
 MONITOR
-725
-593
-783
-638
+1167
+925
+1225
+970
 0
 count citizens with [dict-value brain \"A\" = 0]
 1
@@ -1317,10 +1317,10 @@ count citizens with [dict-value brain \"A\" = 0]
 11
 
 MONITOR
-783
-593
-840
-638
+1225
+925
+1282
+970
 1
 count citizens with [dict-value brain \"A\" = 1]
 1
@@ -1328,10 +1328,10 @@ count citizens with [dict-value brain \"A\" = 1]
 11
 
 MONITOR
-845
-593
-911
-638
+1287
+925
+1353
+970
 2
 count citizens with [dict-value brain \"A\" = 2]
 1
@@ -1339,10 +1339,10 @@ count citizens with [dict-value brain \"A\" = 2]
 11
 
 MONITOR
-917
-593
-975
-638
+1359
+925
+1417
+970
 3
 count citizens with [dict-value brain \"A\" = 3]
 1
@@ -1350,10 +1350,10 @@ count citizens with [dict-value brain \"A\" = 3]
 11
 
 MONITOR
-973
-593
-1031
-638
+1415
+925
+1473
+970
 4
 count citizens with [dict-value brain \"A\" = 4]
 1
@@ -1476,10 +1476,10 @@ Simulation Controls
 1
 
 TEXTBOX
-730
-334
-880
-352
+1172
+666
+1322
+684
 Simulation State Plots
 14
 0.0
@@ -1494,7 +1494,7 @@ N
 N
 0
 1000
-500.0
+250.0
 10
 1
 NIL
@@ -1523,20 +1523,20 @@ show-social-friends?
 -1000
 
 TEXTBOX
-728
-362
-878
-380
+1170
+694
+1320
+712
 Cognitive State
 11
 0.0
 1
 
 PLOT
-723
-689
-992
-924
+1635
+725
+1904
+960
 Social Friend Degree of Nodes
 NIL
 NIL
@@ -1551,10 +1551,10 @@ PENS
 "default" 1.0 1 -16777216 true "" "set-plot-x-range 0 (max [count social-friend-neighbors] of citizens) + 1\nhistogram [count social-friend-neighbors] of citizens"
 
 TEXTBOX
-719
-658
-907
-681
+1631
+694
+1819
+717
 Aggregate Charts
 13
 0.0
@@ -1724,10 +1724,10 @@ false
 PENS
 
 MONITOR
-1028
-593
-1086
-638
+1470
+925
+1528
+970
 5
 count citizens with [dict-value brain \"A\" = 5]
 17
@@ -1735,10 +1735,10 @@ count citizens with [dict-value brain \"A\" = 5]
 11
 
 MONITOR
-1090
-593
-1148
-638
+1532
+925
+1590
+970
 6
 count citizens with [dict-value brain \"A\" = 6]
 17
@@ -2086,7 +2086,7 @@ SLIDER
 255
 376
 428
-410
+409
 message-repeats
 message-repeats
 0
@@ -2101,11 +2101,65 @@ CHOOSER
 250
 325
 389
-371
+370
 message-file
 message-file
 "default" "split" "gradual"
 0
+
+PLOT
+732
+320
+1106
+476
+homophily
+NIL
+NIL
+0.0
+10.0
+0.0
+1.0
+true
+false
+"" ""
+PENS
+"default" 1.0 0 -16777216 true "" "plot 1 / graph-homophily \"A\""
+
+PLOT
+733
+483
+1106
+638
+polarization
+NIL
+NIL
+0.0
+10.0
+0.0
+10.0
+true
+false
+"" ""
+PENS
+"default" 1.0 0 -16777216 true "" "plot graph-polarization \"A\""
+
+PLOT
+733
+647
+1108
+812
+disagreement
+NIL
+NIL
+0.0
+10.0
+0.0
+10.0
+true
+false
+"" ""
+PENS
+"default" 1.0 0 -16777216 true "" "plot graph-disagreement \"A\""
 
 @#$#@#$#@
 ## WHAT IS IT?
