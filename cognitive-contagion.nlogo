@@ -200,9 +200,8 @@ to create-media
 ;      set idee "TWO"
 ;    ]
 
-    let id 0
-    create-medias 3 [
-      set brain create-agent-brain id citizen-priors citizen-malleables [] [6]
+    create-medias 1 [
+      set brain create-agent-brain 0 citizen-priors citizen-malleables [] [6]
       set cur-message-id 0
       ;setxy 0 1
       setxy random-xcor random-ycor
@@ -211,7 +210,17 @@ to create-media
       set messages-heard []
       set messages-believed []
       set messages-sent []
-      set id id + 1
+    ]
+    create-medias 1 [
+      set brain create-agent-brain 1 citizen-priors citizen-malleables [] [0]
+      set cur-message-id 0
+      ;setxy 0 1
+      setxy random-xcor random-ycor
+      set color green
+      set idee "DIS"
+      set messages-heard []
+      set messages-believed []
+      set messages-sent []
     ]
   ]
 end
@@ -413,20 +422,7 @@ end
 
 to step
   if media-agents? [
-    ;; Have media companies create messages
-    let messages (dict-value messages-over-time (word ticks))
-    foreach messages [ media-messages ->
-      let media-idee item 0 media-messages
-      foreach (item 1 media-messages) [ m ->
-        ;; TODO: Fix this so it's not hardcoded to just be "A"
-        ask medias with [ idee = media-idee ] [
-          let a (dict-value m "A")
-          repeat message-repeats [
-            send-media-message-to-subscribers self (list (list "A" a))
-          ]
-        ]
-      ]
-    ]
+    institutions-send-messages
   ]
   if contagion-on? [
     ;; In the case where we do not have influencer agents, simply do a contagion from the agent perspective
@@ -442,6 +438,72 @@ to step
   layout
 
   tick
+end
+
+to institutions-send-messages
+  ;; Have media companies create from files
+  if institution-tactic = "predetermined" [
+    institutions-predetermined-tactic
+  ]
+  if institution-tactic = "broadcast-brain" [
+    institutions-broadcast-brain
+  ]
+  if institution-tactic = "appeal-mean" [
+    institutions-appeal-mean
+  ]
+  if institution-tactic = "appeal-median" [
+    institutions-appeal-median
+  ]
+  if institution-tactic = "appeal-mode" [
+    institutions-appeal-mode
+  ]
+end
+
+to institutions-predetermined-tactic
+  let messages (dict-value messages-over-time (word ticks))
+  foreach messages [ media-messages ->
+    let media-idee item 0 media-messages
+    foreach (item 1 media-messages) [ m ->
+      ;; TODO: Fix this so it's not hardcoded to just be "A"
+      ask medias with [ idee = media-idee ] [
+        let a (dict-value m "A")
+        repeat message-repeats [
+          send-media-message-to-subscribers self (list (list "A" a))
+        ]
+      ]
+    ]
+  ]
+end
+
+to institutions-broadcast-brain
+
+end
+
+to institutions-appeal-mean
+  ask medias [
+    let message-val (round (mean [ dict-value brain "A" ] of subscriber-neighbors))
+    repeat message-repeats [
+      send-media-message-to-subscribers self (list (list "A" message-val))
+    ]
+  ]
+end
+
+to institutions-appeal-median
+  ask medias [
+    let message-val (round (median [ dict-value brain "A" ] of subscriber-neighbors))
+    repeat message-repeats [
+      send-media-message-to-subscribers self (list (list "A" message-val))
+    ]
+  ]
+end
+
+to institutions-appeal-mode
+  ask medias [
+    let message-val (round ((item 0 modes [ dict-value brain "A" ] of subscriber-neighbors)))
+    repeat message-repeats [
+      send-media-message-to-subscribers self (list (list "A" message-val))
+    ]
+  ]
 end
 
 to update-agents
@@ -729,9 +791,9 @@ to give-self-ip-color
     set color (extract-rgb gray)
   ] [
     let bel-color []
-    set bel-color lput (255 - (round ((255 / (belief-resolution - 1)) * a))) bel-color
+    set bel-color lput (255 - (floor ((255 / (belief-resolution - 1)) * a))) bel-color
     set bel-color lput 0 bel-color
-    set bel-color lput (round ((255 / (belief-resolution - 1)) * a)) bel-color
+    set bel-color lput (floor ((255 / (belief-resolution - 1)) * a)) bel-color
     set color bel-color
   ]
 ;  show (round (255 / belief-resolution) * a)
@@ -1406,10 +1468,10 @@ NIL
 0
 
 SLIDER
-526
-741
-656
-774
+534
+852
+664
+885
 threshold
 threshold
 0
@@ -1428,9 +1490,9 @@ SLIDER
 epsilon
 epsilon
 0
-100
-0.0
-0.1
+belief-resolution
+2.0
+1
 1
 NIL
 HORIZONTAL
@@ -1522,7 +1584,7 @@ N
 N
 0
 1000
-500.0
+750.0
 10
 1
 NIL
@@ -1589,10 +1651,10 @@ Aggregate Charts
 1
 
 CHOOSER
-330
-794
-472
-839
+338
+905
+480
+950
 spread-type
 spread-type
 "simple" "complex" "cognitive"
@@ -1610,9 +1672,9 @@ Display
 
 SWITCH
 28
-472
+580
 147
-505
+613
 load-graph?
 load-graph?
 1
@@ -1621,9 +1683,9 @@ load-graph?
 
 INPUTBOX
 26
-512
+620
 241
-572
+680
 load-graph-path
 ./exp1-graph.csv
 1
@@ -1632,9 +1694,9 @@ String
 
 INPUTBOX
 28
-577
+685
 243
-637
+745
 save-graph-path
 ./exp1-graph.csv
 1
@@ -1659,20 +1721,20 @@ NIL
 1
 
 CHOOSER
-20
-793
-173
-838
+28
+904
+181
+949
 cognitive-fn
 cognitive-fn
 "linear-gullible" "linear-stubborn" "linear-mid" "threshold-gullible" "threshold-mid" "threshold-stubborn" "sigmoid-gullible" "sigmoid-stubborn" "sigmoid-mid"
 7
 
 SLIDER
-166
-739
-340
-772
+174
+850
+348
+883
 simple-spread-chance
 simple-spread-chance
 0
@@ -1684,10 +1746,10 @@ NIL
 HORIZONTAL
 
 SLIDER
-345
-740
-519
-773
+353
+851
+527
+884
 complex-spread-ratio
 complex-spread-ratio
 0
@@ -1699,10 +1761,10 @@ NIL
 HORIZONTAL
 
 CHOOSER
-185
-794
-324
-839
+193
+905
+332
+950
 brain-type
 brain-type
 "discrete" "continuous"
@@ -1785,10 +1847,10 @@ media-agents?
 -1000
 
 SLIDER
-20
-883
-193
-916
+28
+994
+201
+1027
 cognitive-exponent
 cognitive-exponent
 -10
@@ -1800,10 +1862,10 @@ NIL
 HORIZONTAL
 
 SLIDER
-20
-843
-193
-876
+28
+954
+201
+987
 cognitive-scalar
 cognitive-scalar
 -20
@@ -1815,10 +1877,10 @@ NIL
 HORIZONTAL
 
 SWITCH
-200
-843
-345
-876
+208
+954
+353
+987
 cognitive-scalar?
 cognitive-scalar?
 1
@@ -1826,10 +1888,10 @@ cognitive-scalar?
 -1000
 
 SWITCH
-204
-884
-369
-917
+212
+995
+377
+1028
 cognitive-exponent?
 cognitive-exponent?
 0
@@ -1837,10 +1899,10 @@ cognitive-exponent?
 -1000
 
 SLIDER
-20
-928
-193
-961
+28
+1039
+201
+1072
 cognitive-translate
 cognitive-translate
 -10
@@ -1852,10 +1914,10 @@ NIL
 HORIZONTAL
 
 SWITCH
-204
-928
-367
-961
+212
+1039
+375
+1072
 cognitive-translate?
 cognitive-translate?
 0
@@ -1863,10 +1925,10 @@ cognitive-translate?
 -1000
 
 TEXTBOX
-24
-715
-212
-738
+32
+826
+220
+849
 Contagion Parameters
 12
 0.0
@@ -1874,19 +1936,19 @@ Contagion Parameters
 
 CHOOSER
 251
-466
+574
 390
-511
+619
 graph-type
 graph-type
 "erdos-renyi" "watts-strogatz" "barabasi-albert" "mag" "facebook" "kronecker"
-1
+2
 
 SLIDER
 253
-537
+645
 376
-570
+678
 erdos-renyi-p
 erdos-renyi-p
 0
@@ -1909,9 +1971,9 @@ Institutional Agent Parameters
 
 TEXTBOX
 28
-427
+533
 216
-450
+556
 Graph Parameters
 12
 0.0
@@ -1919,9 +1981,9 @@ Graph Parameters
 
 SLIDER
 398
-490
+598
 532
-523
+631
 watts-strogatz-p
 watts-strogatz-p
 0
@@ -1934,9 +1996,9 @@ HORIZONTAL
 
 SLIDER
 399
-530
+638
 526
-563
+671
 watts-strogatz-k
 watts-strogatz-k
 0
@@ -1949,9 +2011,9 @@ HORIZONTAL
 
 SLIDER
 251
-604
+712
 376
-637
+745
 ba-m
 ba-m
 0
@@ -1964,9 +2026,9 @@ HORIZONTAL
 
 TEXTBOX
 253
-581
+689
 368
-604
+712
 Barabasi-Albert (ba)
 11
 0.0
@@ -1974,19 +2036,19 @@ Barabasi-Albert (ba)
 
 CHOOSER
 249
-672
+780
 388
-717
+825
 mag-style
 mag-style
 "default" "homophilic" "heterophilic"
 0
 
 SWITCH
-25
-739
-158
-772
+33
+850
+166
+883
 contagion-on?
 contagion-on?
 1
@@ -2010,9 +2072,9 @@ HORIZONTAL
 
 SLIDER
 550
-568
+676
 707
-601
+709
 citizen-citizen-influence
 citizen-citizen-influence
 0
@@ -2025,9 +2087,9 @@ HORIZONTAL
 
 SLIDER
 551
-487
+595
 704
-520
+628
 citizen-media-influence
 citizen-media-influence
 0
@@ -2040,9 +2102,9 @@ HORIZONTAL
 
 SLIDER
 551
-527
+635
 706
-560
+668
 media-citizen-influence
 media-citizen-influence
 0
@@ -2055,9 +2117,9 @@ HORIZONTAL
 
 TEXTBOX
 552
-465
+573
 702
-483
+591
 Link weight settings
 11
 0.0
@@ -2065,9 +2127,9 @@ Link weight settings
 
 INPUTBOX
 398
-589
+697
 541
-674
+782
 kronecker-seed
 [[0.6,0.16,0.24],\n  [0.40,0.2,0.4],\n  [0.21,0.14,0.65]]
 1
@@ -2076,9 +2138,9 @@ String
 
 SLIDER
 398
-680
+788
 490
-713
+821
 kronecker-k
 kronecker-k
 0
@@ -2091,9 +2153,9 @@ HORIZONTAL
 
 TEXTBOX
 402
-570
+678
 552
-588
+696
 Kronecker
 11
 0.0
@@ -2101,9 +2163,9 @@ Kronecker
 
 INPUTBOX
 28
-352
+439
 244
-412
+499
 messages-data-path
 D:/school/grad-school/Tufts/research/cognitive-contagion/messaging-data/
 1
@@ -2111,10 +2173,10 @@ D:/school/grad-school/Tufts/research/cognitive-contagion/messaging-data/
 String
 
 SLIDER
-251
-402
-364
-435
+168
+371
+281
+404
 message-repeats
 message-repeats
 0
@@ -2127,9 +2189,9 @@ HORIZONTAL
 
 CHOOSER
 250
-354
+441
 389
-399
+486
 message-file
 message-file
 "default" "split" "gradual"
@@ -2191,9 +2253,9 @@ PENS
 
 TEXTBOX
 255
-517
+625
 405
-535
+643
 Erdos-Renyi (random)
 11
 0.0
@@ -2201,9 +2263,9 @@ Erdos-Renyi (random)
 
 TEXTBOX
 398
-466
+574
 548
-484
+592
 Watts-Strogatz (small world)
 11
 0.0
@@ -2211,9 +2273,9 @@ Watts-Strogatz (small world)
 
 TEXTBOX
 252
-650
+758
 402
-668
+776
 Multiplicate Attribute Graph
 11
 0.0
@@ -2221,9 +2283,9 @@ Multiplicate Attribute Graph
 
 TEXTBOX
 28
-449
+557
 178
-467
+575
 Saving/loading
 11
 0.0
@@ -2288,6 +2350,36 @@ belief-resolution / 2
 1
 NIL
 HORIZONTAL
+
+TEXTBOX
+29
+352
+179
+370
+Messaging tactics
+11
+0.0
+1
+
+CHOOSER
+26
+371
+164
+416
+institution-tactic
+institution-tactic
+"predetermined" "broadcast-brain" "appeal-mean" "appeal-mode" "appeal-median"
+2
+
+TEXTBOX
+31
+421
+181
+439
+Predetermined parameters
+11
+0.0
+1
 
 @#$#@#$#@
 ## WHAT IS IT?
