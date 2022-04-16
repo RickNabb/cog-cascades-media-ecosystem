@@ -131,23 +131,6 @@ to create-agents
   create-media
 end
 
-to create-citizen-dist [ id ]
-  let prior-vals (map sample-attr-dist citizen-priors)
-  let malleable-vals (map sample-attr-dist citizen-malleables)
-  create-citizen id prior-vals malleable-vals
-end
-
-to create-citizen [ id prior-vals malleable-vals ]
-  create-citizens 1 [
-    set brain create-agent-brain id citizen-priors citizen-malleables prior-vals malleable-vals
-    set messages-heard []
-    set messages-believed []
-
-    set size 0.5
-    setxy random-xcor random-ycor
-  ]
-end
-
 to create-citizenz
   let id 0
   let en 0
@@ -156,8 +139,12 @@ to create-citizenz
   ] [
     set en array_shape kronecker-seed ^ kronecker-k
   ]
+
+  ;; Generate list of agent initial beliefs for the specified distribution in the interface
   let prior-vals (initial-belief-dist citizen-init-dist en citizen-priors)
   let malleable-vals (initial-belief-dist citizen-init-dist en citizen-malleables)
+
+  ;; Create them all at once to speed up the process
   create-citizens en [
     set brain create-agent-brain id citizen-priors citizen-malleables (item id prior-vals) (item id malleable-vals)
     set messages-heard []
@@ -824,20 +811,6 @@ to-report load-messages-over-time [ path filename ]
   ]
   report py:runresult(
     word "read_message_over_time_data('" path "/" belief-resolution "/" filename "')"
-  )
-end
-
-to-report sample-attr-dist [ attr ]
-  report py:runresult(
-    word "random_dist_sample(" attr "," belief-resolution ")"
-  )
-end
-
-to-report sample-attr-dist-given [ attr given ]
-  ;show(word "random_dist_sample(" attr "," (tuple-list-as-py-dict given false false) ")")
-  ;; Now it's putting quotes around the Attribute.I which should not be there... have to reconcile somehow
-  report py:runresult(
-    word "random_dist_sample(" attr "," (tuple-list-as-py-dict given false false) ")"
   )
 end
 
