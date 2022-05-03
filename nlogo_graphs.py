@@ -12,6 +12,7 @@ from networkx import community
 from messaging import *
 from random import random
 from kronecker import kronecker_pow
+from functools import reduce
 import matplotlib.cm as cm
 import matplotlib.pyplot as plt
 
@@ -223,6 +224,25 @@ def nlogo_graph_to_nx(citizens, friend_links):
     G.add_edge(int(end1), int(end2))
   return G
 
+def nlogo_graph_to_nx_with_media(citizens, friend_links, media, subscribers):
+  G = nx.Graph()
+  agents = citizens + media
+  links = friend_links + subscribers
+  for agent in agents:
+    cit_id = int(agent['ID'])
+    G.add_node(cit_id)
+    for attr in agent['malleable']:
+      G.nodes[cit_id][attr] = agent[attr]
+    for attr in agent['prior']:
+      G.nodes[cit_id][attr] = agent[attr]
+  for link in links:
+    link_split = link.split(' ')
+    end1 = link_split[1]
+    end2 = link_split[2].replace(')','')
+    G.add_edge(int(end1), int(end2))
+  return G
+
+
 def influencer_paths(G, subscribers, target):
   target_id = int(target.split(' ')[1].replace(')', ''))
   return { subscriber.split(' ')[2].replace(')',''): nx.all_simple_paths(G, subscriber.split(' ')[2].replace(')',''), target, cutoff=5) for subscriber in subscribers }
@@ -259,6 +279,94 @@ def influencer_paths_within_distance(citizens, friend_links, subscribers, target
       threshold_paths[subscriber] = dist_path
       # threshold_paths[subscriber] = paths[subscriber]
   return threshold_paths
+
+def simple_power_fn(p):
+  '''
+  A first-degree power function for simple contagion: simply returning
+  the probability p of contagion.
+
+  :param p: The probability of contagion.
+  '''
+  return lambda u, v: p
+
+def complex_power_fn(G, attr, threshold):
+  '''
+  A first-degree power function for complex contagion: adding up the
+  number of nodes in an agent's neighborhood who their belief would
+  sway.
+
+  :param G: The graph.
+  :param attr: The belief attribute in an agent's brain to compare to its
+  neighbors.
+  :param threshold: The ratio needed to induce complex contagion.
+  '''
+  complex_fn = lambda bel, neighbors: 1 if (len(list(filter(lambda neighbor: G.nodes[neighbor][attr] == bel, neighbors))) / len(neighbors)) >= threshold else 0
+  return lambda u, v: complex_fn(G.nodes[u][attr], list(nx.neighbors(G, v)))
+
+def cognitive_power_fn(G, attr, fn, scalar, ex, trans):
+  '''
+  A first-degree power function for cognitive contagion: adding
+  up the probabilities of contagion given different contagion
+  functions between u and v's beliefs in attr.
+
+  :param G: The graph.
+  :param attr: The belief attribute in an agent's brain to compare to its
+  neighbors.
+  :param fn: The string cognitive contagion function.
+  :param scalar: A scalar multiplier for the cognitive function.
+  :param ex: An exponent on the cognitive function.
+  :param trans: A translation for the cognitive function.
+  '''
+  bel_fn = lambda u, v: -1
+  if 'sigmoid' in fn:
+    bel_fn = lambda u, v: (1 / (1 + math.exp(ex * (abs(G.nodes[u][attr] - G.nodes[v][attr]) - trans))))
+  elif 'linear' in fn:
+    bel_fn = lambda u, v: (1 / (trans + (scalar * abs(G.nodes[u][attr] - G.nodes[v][attr])) ** ex))
+  elif 'threshold' in fn:
+    bel_fn = lambda u, v: 1 if abs(G.nodes[u][attr]-G.nodes[v][attr]) <= trans else 0
+  return bel_fn
+
+def first_degree_power_simple(G, u, p):
+  return first_degree_power(G, u, simple_power_fn(p))
+
+def first_degree_power_dist_simple(G, p):
+  return first_degree_power_distribution(G, simple_power_fn(p))
+
+def first_degree_power_complex(G, u, attr, threshold):
+  return first_degree_power(G, u, complex_power_fn(G, attr, threshold))
+
+def first_degree_power_dist_complex(G, attr, threshold):
+  return first_degree_power_distribution(G, complex_power_fn(G, attr, threshold))
+
+def first_degree_power_cognitive(G, u, attr, fn, scalar, ex, trans):
+  return first_degree_power(G, u, cognitive_power_fn(G, attr, fn, scalar, ex, trans))
+
+def first_degree_power_dist_cognitive(G, attr, fn, scalar, ex, trans):
+  return first_degree_power_distribution(G, cognitive_power_fn(G, attr, fn, scalar, ex, trans))
+
+def first_degree_power(G, u, bel_fn):
+  '''
+  Calculate the power of an agent u in graph G according to belief
+  function bel_fn on its first order neighbors. Power here is the
+  sum of the belief function values over the list of neighbors.
+
+  :param G: The graph.
+  :param u: The agent to calculate power for.
+  :param bel_fn: A function determining belief probability between
+  agents.
+  '''
+  neighbors = nx.neighbors(G, u)
+  vals = np.array(list(map(lambda neighbor: bel_fn(u, neighbor), neighbors)))
+  return vals.sum()
+
+def first_degree_power_distribution(G, bel_fn):
+  '''
+  Generate a distribution of all agents' first-degree power
+  in the graph.
+  :param G: The graph.
+  :param bel_fn: The function to use for belief and power calculations.
+  '''
+  return [ { u: first_degree_power(G, u, bel_fn) } for u in G.nodes ]
 
 def plot_graph_communities(G, level):
   '''
@@ -344,3 +452,10 @@ def nlogo_graph_disagreement(citizens, friend_links, node_attr, max_attr_val):
 
 def graph_democracy(G):
   return 0
+
+def test_ws_graph_normal(n, k, p):
+  G = nx.watts_strogatz_graph(n, k, p)
+  agent_bels = normal_dist_multiple(7, 3, 1, n, 1)
+  for i in range(n):
+    G.nodes[i]['A'] = agent_bels[i][0]
+  return G

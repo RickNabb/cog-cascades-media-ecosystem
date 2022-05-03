@@ -201,7 +201,7 @@ to create-media
 ;    ]
 
     create-medias 1 [
-      set brain create-agent-brain 0 citizen-priors citizen-malleables [] [6]
+      set brain create-agent-brain (N + 0) citizen-priors citizen-malleables [] [6]
       set cur-message-id 0
       ;setxy 0 1
       setxy random-xcor random-ycor
@@ -212,7 +212,7 @@ to create-media
       set messages-sent []
     ]
     create-medias 1 [
-      set brain create-agent-brain 1 citizen-priors citizen-malleables [] [0]
+      set brain create-agent-brain (N + 1) citizen-priors citizen-malleables [] [0]
       set cur-message-id 0
       ;setxy 0 1
       setxy random-xcor random-ycor
@@ -457,6 +457,9 @@ to institutions-send-messages
   if institution-tactic = "appeal-mode" [
     institutions-appeal-mode
   ]
+  if institution-tactic = "max-reach-no-chain" [
+    institutions-max-reach-no-chain
+  ]
 end
 
 to institutions-predetermined-tactic
@@ -476,7 +479,12 @@ to institutions-predetermined-tactic
 end
 
 to institutions-broadcast-brain
-
+  ask medias [
+    let message-val dict-value brain "A"
+    repeat message-repeats [
+      send-media-message-to-subscribers self (list (list "A" message-val))
+    ]
+  ]
 end
 
 to institutions-appeal-mean
@@ -502,6 +510,88 @@ to institutions-appeal-mode
     let message-val (round ((item 0 modes [ dict-value brain "A" ] of subscriber-neighbors)))
     repeat message-repeats [
       send-media-message-to-subscribers self (list (list "A" message-val))
+    ]
+  ]
+end
+
+to institutions-max-reach-no-chain
+  ask medias [
+    ifelse empty? messages-sent [
+      let message-val dict-value brain "A"
+      repeat message-repeats [
+        send-media-message-to-subscribers self (list (list "A" message-val))
+      ]
+    ] [
+      ;; This gets a list of messages b/c messages-sent = [ [message-id [ message ]] [message-id [ message ] ]] ... ]
+      let last-message-obj (last messages-sent)
+      let last-message-id item 0 last-message-obj
+      let last-message item 1 last-message-obj
+
+      show self
+      show last-message
+      let believed-cits citizens with [
+        (dict-value messages-believed (ticks - 1)) != -1 and
+        member? last-message-id (dict-value messages-believed (ticks - 1))
+      ]
+      show believed-cits
+      let heard-not-bel-cits citizens with [
+        (dict-value messages-heard (ticks - 1)) != -1 and member? last-message-id (dict-value messages-heard (ticks - 1)) and
+        (dict-value messages-believed (ticks - 1)) != -1 and not member? last-message-id (dict-value messages-believed (ticks - 1))
+      ]
+      show heard-not-bel-cits
+
+      if empty? sort believed-cits and empty? sort heard-not-bel-cits [
+        let message-val dict-value brain "A"
+        repeat message-repeats [
+          send-media-message-to-subscribers self (list (list "A" message-val))
+        ]
+      ]
+      ifelse empty? sort heard-not-bel-cits [
+        repeat message-repeats [
+          send-media-message-to-subscribers self last-message
+        ]
+      ] [
+        if spread-type = "simple" [
+          ; Doesn't seem to be much you can do here... it's all random
+        ]
+        if spread-type = "complex" [
+
+        ]
+        if spread-type = "cognitive" [
+          ;; TODO: Come up with some other procedure for this... in multi-dimensional belief space this would be too much
+          let bel-min (item 1 last-message)
+          let bel-max (item 1 last-message)
+          if not empty? sort believed-cits [
+            set bel-min (min [dict-value brain "A"] of believed-cits)
+            set bel-max (max [dict-value brain "A"] of believed-cits)
+          ]
+          let heard-min (item 1 last-message)
+          let heard-max (item 1 last-message)
+          if not empty? sort heard-not-bel-cits [
+            set heard-min (min [dict-value brain "A"] of heard-not-bel-cits)
+            set heard-max (max [dict-value brain "A"] of heard-not-bel-cits)
+          ]
+          let potential-messages (range (min (list bel-min heard-min)) (max (list bel-max heard-max) + 1))
+          show potential-messages
+
+          ; Test all message value expected # of agents believing it
+          let best-message-val -1
+          let best-expected-bels -1
+          foreach potential-messages [ message-val ->
+            let believed-ps map [ cit -> cognitive-contagion-p cit last-message ] (sort believed-cits)
+            let expected-beliefs sum believed-ps
+            if expected-beliefs > best-expected-bels [
+              set best-expected-bels expected-beliefs
+              set best-message-val message-val
+            ]
+          ]
+
+          show best-message-val
+          repeat message-repeats [
+            send-media-message-to-subscribers self (list (list "A" best-message-val))
+          ]
+        ]
+      ]
     ]
   ]
 end
@@ -542,6 +632,33 @@ to send-media-message-to-subscribers [ m message ]
   ]
 end
 
+to-report cognitive-contagion-p [ cit message ]
+  let p 0
+  ask cit [
+    let scalar 1
+    let expon 1
+    let trans 0
+    let dist (dist-to-agent-brain brain message)
+
+    if cognitive-scalar? [ set scalar cognitive-scalar ]
+    if cognitive-exponent? [ set expon cognitive-exponent ]
+    if cognitive-translate? [ set trans cognitive-translate ]
+
+    ;; Good values for linear:
+    if member? "linear" cognitive-fn [ set p 1 / (trans + (scalar * dist) ^ expon) ]
+
+    ;; Good values for sigmoid: expon = -4, trans = -5 (works like old threshold function)
+    if member? "sigmoid" cognitive-fn [ set p (1 / (1 + (exp (expon * (dist - trans))))) ]
+    ;        show (word "dist: " dist)
+    ;        show (word self ": " (dict-value brain "A") " " message " (p=" p ")")
+
+    if member? "threshold" cognitive-fn [
+      ifelse dist <= trans [ set p 1 ] [ set p 0 ]
+    ]
+  ]
+  report p
+end
+
 ;; Have a citizen agent receive a message: hear it, either believe it or not, and subsequently either
 ;; share it or not.
 ;;
@@ -555,28 +672,8 @@ to receive-message [ cit sender message message-id ]
       hear-message self message-id message
 
       if spread-type = "cognitive" [
-        let p 0
-        let scalar 1
-        let expon 1
-        let trans 0
-        let dist (dist-to-agent-brain brain message)
 
-        if cognitive-scalar? [ set scalar cognitive-scalar ]
-        if cognitive-exponent? [ set expon cognitive-exponent ]
-        if cognitive-translate? [ set trans cognitive-translate ]
-
-        ;; Good values for linear:
-        if member? "linear" cognitive-fn [ set p 1 / (trans + (scalar * dist) ^ expon) ]
-
-        ;; Good values for sigmoid: expon = -4, trans = -5 (works like old threshold function)
-        if member? "sigmoid" cognitive-fn [ set p (1 / (1 + (exp (expon * (dist - trans))))) ]
-;        show (word "dist: " dist)
-;        show (word self ": " (dict-value brain "A") " " message " (p=" p ")")
-
-        if member? "threshold" cognitive-fn [
-          ifelse dist <= trans [ set p 1 ] [ set p 0 ]
-        ]
-
+        let p cognitive-contagion-p self message
         ;; Whether or not to believe the message
         let roll random-float 1
         if roll <= p [
@@ -1084,6 +1181,69 @@ to-report graph-disagreement [ attr ]
   )
 end
 
+to-report agent-power [ agent attr ]
+  let citizen-arr list-as-py-array (map [ cit -> agent-brain-as-py-dict [brain] of citizen cit ] (range N)) false
+  let edge-arr list-as-py-array (sort social-friends) true
+  let media-arr []
+  let subscriber-arr []
+
+  if is-media? agent [
+    set media-arr list-as-py-array (map [ med -> agent-brain-as-py-dict [brain] of med ] (sort medias)) false
+    set subscriber-arr list-as-py-array (sort subscribers) true
+  ]
+
+  if spread-type = "cognitive" [
+    let scalar 1
+    let ex 1
+    let trans 0
+    if cognitive-scalar? [ set scalar cognitive-scalar ]
+    if cognitive-exponent? [ set ex cognitive-exponent ]
+    if cognitive-translate? [ set trans cognitive-translate ]
+    ifelse is-media? agent [
+      report py:runresult((word "first_degree_power_cognitive(nlogo_graph_to_nx_with_media(" citizen-arr "," edge-arr "," media-arr "," subscriber-arr ")," ([dict-value brain "ID"] of agent) ",'" attr "','" cognitive-fn "'," scalar "," ex "," trans ")"))
+    ] [
+      report py:runresult((word "first_degree_power_cognitive(nlogo_graph_to_nx(" citizen-arr "," edge-arr ")," ([dict-value brain "ID"] of agent) ",'" attr "','" cognitive-fn "'," scalar "," ex "," trans ")"))
+    ]
+  ]
+  if spread-type = "complex" [
+    ifelse is-media? agent [
+      report py:runresult((word "first_degree_power_complex(nlogo_graph_to_nx_with_media(" citizen-arr "," edge-arr "," media-arr "," subscriber-arr ")," ([dict-value brain "ID"] of agent) ",'" attr "'," complex-spread-ratio ")"))
+    ] [
+      report py:runresult((word "first_degree_power_complex(nlogo_graph_to_nx(" citizen-arr "," edge-arr ")," ([dict-value brain "ID"] of agent) ",'" attr "'," complex-spread-ratio ")"))
+    ]
+  ]
+  if spread-type = "simple" [
+    ifelse is-media? agent [
+      report py:runresult((word "first_degree_power_simple(nlogo_graph_to_nx_with_media(" citizen-arr "," edge-arr "," media-arr "," subscriber-arr ")," ([dict-value brain "ID"] of agent) "," simple-spread-chance ")"))
+    ] [
+      report py:runresult((word "first_degree_power_simple(nlogo_graph_to_nx(" citizen-arr "," edge-arr ")," ([dict-value brain "ID"] of agent) "," simple-spread-chance ")"))
+    ]
+  ]
+end
+
+to-report agents-power [ attr ]
+  let citizen-arr list-as-py-array (map [ cit -> agent-brain-as-py-dict [brain] of citizen cit ] (range N)) false
+  let edge-arr list-as-py-array (sort social-friends) true
+  let media-arr list-as-py-array (map [ med -> agent-brain-as-py-dict [brain] of med ] (sort medias)) false
+  let subscriber-arr list-as-py-array (sort subscribers) true
+
+  if spread-type = "cognitive" [
+    let scalar 1
+    let ex 1
+    let trans 0
+    if cognitive-scalar? [ set scalar cognitive-scalar ]
+    if cognitive-exponent? [ set ex cognitive-exponent ]
+    if cognitive-translate? [ set trans cognitive-translate ]
+    report py:runresult((word "first_degree_power_dist_cognitive(nlogo_graph_to_nx_with_media(" citizen-arr "," edge-arr "," media-arr "," subscriber-arr "),'" attr "','" cognitive-fn "'," scalar "," ex "," trans ")"))
+  ]
+  if spread-type = "complex" [
+    report py:runresult((word "first_degree_power_dist_complex(nlogo_graph_to_nx_with_media(" citizen-arr "," edge-arr "," media-arr "," subscriber-arr "),'" attr "'," complex-spread-ratio ")"))
+  ]
+  if spread-type = "simple" [
+    report py:runresult((word "first_degree_power_dist_simple(nlogo_graph_to_nx_with_media(" citizen-arr "," edge-arr "," media-arr "," subscriber-arr ")," simple-spread-chance ")"))
+  ]
+end
+
 ;;;;;;;;;;;;;;;
 ; HELPER PROCS
 ;;;;;;;;;;;;;;;
@@ -1302,11 +1462,11 @@ end
 GRAPHICS-WINDOW
 1169
 13
-1798
-643
+1601
+446
 -1
 -1
-18.82
+11.52
 1
 10
 1
@@ -1320,8 +1480,8 @@ GRAPHICS-WINDOW
 16
 -16
 16
-0
-0
+1
+1
 1
 ticks
 30.0
@@ -1378,10 +1538,10 @@ NIL
 1
 
 PLOT
-1170
-724
-1567
-917
+1625
+73
+2022
+266
 A Histogram
 A Value
 Number of Agents
@@ -1396,10 +1556,10 @@ PENS
 "default" 1.0 1 -16777216 true "" "plot-pen-reset  ;; erase what we plotted before\nset-plot-x-range -1 (belief-resolution + 1)\n\nhistogram [dict-value brain \"A\"] of citizens"
 
 MONITOR
-1167
-925
-1225
-970
+1623
+274
+1681
+319
 0
 count citizens with [dict-value brain \"A\" = 0]
 1
@@ -1407,10 +1567,10 @@ count citizens with [dict-value brain \"A\" = 0]
 11
 
 MONITOR
-1225
-925
-1282
-970
+1680
+274
+1737
+319
 1
 count citizens with [dict-value brain \"A\" = 1]
 1
@@ -1418,10 +1578,10 @@ count citizens with [dict-value brain \"A\" = 1]
 11
 
 MONITOR
-1287
-925
-1353
-970
+1743
+274
+1809
+319
 2
 count citizens with [dict-value brain \"A\" = 2]
 1
@@ -1429,10 +1589,10 @@ count citizens with [dict-value brain \"A\" = 2]
 11
 
 MONITOR
-1359
-925
-1417
-970
+1815
+274
+1873
+319
 3
 count citizens with [dict-value brain \"A\" = 3]
 1
@@ -1440,10 +1600,10 @@ count citizens with [dict-value brain \"A\" = 3]
 11
 
 MONITOR
-1415
-925
-1473
-970
+1870
+274
+1928
+319
 4
 count citizens with [dict-value brain \"A\" = 4]
 1
@@ -1566,10 +1726,10 @@ Simulation Controls
 1
 
 TEXTBOX
-1172
-666
-1322
-684
+1627
+15
+1777
+33
 Simulation State Plots
 14
 0.0
@@ -1584,7 +1744,7 @@ N
 N
 0
 1000
-750.0
+250.0
 10
 1
 NIL
@@ -1613,20 +1773,20 @@ show-social-friends?
 -1000
 
 TEXTBOX
-1170
-694
-1320
-712
+1625
+43
+1775
+61
 Cognitive State
 11
 0.0
 1
 
 PLOT
-1635
-725
-1904
-960
+1625
+362
+1894
+597
 Social Friend Degree of Nodes
 NIL
 NIL
@@ -1641,10 +1801,10 @@ PENS
 "default" 1.0 1 -16777216 true "" "set-plot-x-range 0 (max [count social-friend-neighbors] of citizens) + 1\nhistogram [count social-friend-neighbors] of citizens"
 
 TEXTBOX
-1631
-694
-1819
-717
+1620
+330
+1808
+353
 Aggregate Charts
 13
 0.0
@@ -1814,10 +1974,10 @@ false
 PENS
 
 MONITOR
-1470
-925
-1528
-970
+1925
+274
+1983
+319
 5
 count citizens with [dict-value brain \"A\" = 5]
 17
@@ -1825,10 +1985,10 @@ count citizens with [dict-value brain \"A\" = 5]
 11
 
 MONITOR
-1532
-925
-1590
-970
+1987
+274
+2045
+319
 6
 count citizens with [dict-value brain \"A\" = 6]
 17
@@ -1942,7 +2102,7 @@ CHOOSER
 graph-type
 graph-type
 "erdos-renyi" "watts-strogatz" "barabasi-albert" "mag" "facebook" "kronecker"
-2
+1
 
 SLIDER
 253
@@ -2173,9 +2333,9 @@ D:/school/grad-school/Tufts/research/cognitive-contagion/messaging-data/
 String
 
 SLIDER
-168
+207
 371
-281
+320
 404
 message-repeats
 message-repeats
@@ -2213,7 +2373,7 @@ true
 false
 "" ""
 PENS
-"default" 1.0 0 -16777216 true "" "plot 1 / graph-homophily \"A\""
+"default" 1.0 0 -16777216 true "" "plot 1 / (1 + graph-homophily \"A\")"
 
 PLOT
 733
@@ -2364,12 +2524,12 @@ Messaging tactics
 CHOOSER
 26
 371
-164
+204
 416
 institution-tactic
 institution-tactic
-"predetermined" "broadcast-brain" "appeal-mean" "appeal-mode" "appeal-median"
-2
+"predetermined" "broadcast-brain" "appeal-mean" "appeal-mode" "appeal-median" "max-reach-no-chain"
+1
 
 TEXTBOX
 31
@@ -2380,6 +2540,24 @@ Predetermined parameters
 11
 0.0
 1
+
+PLOT
+1169
+455
+1547
+669
+First degree power distribution
+NIL
+NIL
+0.0
+10.0
+0.0
+10.0
+true
+false
+"" ""
+PENS
+"default" 1.0 1 -16777216 true "" "plot-pen-reset  ;; erase what we plotted before\n\nlet power-dist agents-power \"A\"\nhistogram map [ agent -> (item 1 (item 0 agent)) ] power-dist "
 
 @#$#@#$#@
 ## WHAT IS IT?
