@@ -201,29 +201,24 @@ to create-media
         set id id + 1
       ]
     ]
+    if media-ecosystem = "predetermined" [
+      show "test"
+      let ecosystem load-media-ecosystem (word media-ecosystem-path "/") (word media-ecosystem-file ".json")
+      show ecosystem
+      show item 0 ecosystem
+      foreach ecosystem [ m ->
+        create-medias 1 [
+          set idee (dict-value m "ID")
+          set brain (dict-value m "brain")
+          set messages-heard []
+          set messages-believed []
+          set messages-sent []
 
-;    create-medias 1 [
-;      set brain create-agent-brain (N + 0) citizen-priors citizen-malleables [] [6]
-;      set cur-message-id 0
-;      ;setxy 0 1
-;      setxy random-xcor random-ycor
-;      set color green
-;      set idee "BEL"
-;      set messages-heard []
-;      set messages-believed []
-;      set messages-sent []
-;    ]
-;    create-medias 1 [
-;      set brain create-agent-brain (N + 1) citizen-priors citizen-malleables [] [0]
-;      set cur-message-id 0
-;      ;setxy 0 1
-;      setxy random-xcor random-ycor
-;      set color green
-;      set idee "DIS"
-;      set messages-heard []
-;      set messages-believed []
-;      set messages-sent []
-;    ]
+          setxy random-xcor random-ycor
+          set color green
+        ]
+      ]
+    ]
   ]
 end
 
@@ -980,6 +975,15 @@ to-report load-messages-over-time [ path filename ]
   ]
   report py:runresult(
     word "read_message_over_time_data('" path "/" belief-resolution "/" filename "')"
+  )
+end
+
+to-report load-media-ecosystem [ path filename ]
+  if not file-exists? (word path "/" belief-resolution) [
+    error "Media ecosystem directory does not exist for current resolution"
+  ]
+  report py:runresult(
+    word "read_media_ecosystem_data('" path "/" belief-resolution "/" filename "')"
   )
 end
 
@@ -1746,7 +1750,7 @@ N
 N
 0
 1000
-250.0
+500.0
 10
 1
 NIL
@@ -2559,7 +2563,7 @@ CHOOSER
 media-ecosystem
 media-ecosystem
 "predetermined" "distribution"
-1
+0
 
 INPUTBOX
 173
@@ -2580,7 +2584,7 @@ CHOOSER
 media-ecosystem-dist
 media-ecosystem-dist
 "uniform" "normal"
-1
+0
 
 SLIDER
 26
@@ -2621,7 +2625,7 @@ media-ecosystem-n
 media-ecosystem-n
 0
 100
-10.0
+20.0
 1
 1
 NIL
@@ -2634,8 +2638,8 @@ CHOOSER
 633
 media-ecosystem-file
 media-ecosystem-file
-"test"
-0
+"one-min" "one-mid" "one-max" "two-polarized" "two-mid" "three-polarized" "three-mid"
+3
 
 PLOT
 1618

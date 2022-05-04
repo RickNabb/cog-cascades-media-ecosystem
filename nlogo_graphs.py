@@ -459,3 +459,79 @@ def test_ws_graph_normal(n, k, p):
   for i in range(n):
     G.nodes[i]['A'] = agent_bels[i][0]
   return G
+
+class INSTITUTION_ECOSYSTEM_TYPES(Enum):
+  ONE_MIN = 0
+  ONE_MAX = 1
+  ONE_MID = 2
+  TWO_POLARIZED = 3
+  TWO_MID = 4
+  THREE_POLARIZED = 5
+  THREE_MID = 6
+
+file_names = {
+  INSTITUTION_ECOSYSTEM_TYPES.ONE_MIN: 'one-min',
+  INSTITUTION_ECOSYSTEM_TYPES.ONE_MAX: 'one-max',
+  INSTITUTION_ECOSYSTEM_TYPES.ONE_MID: 'one-mid',
+  INSTITUTION_ECOSYSTEM_TYPES.TWO_POLARIZED: 'two-polarized',
+  INSTITUTION_ECOSYSTEM_TYPES.TWO_MID: 'two-mid',
+  INSTITUTION_ECOSYSTEM_TYPES.THREE_POLARIZED: 'three-polarized',
+  INSTITUTION_ECOSYSTEM_TYPES.THREE_MID: 'three-mid'
+}
+
+# Command to run: generate_media_ecosystems(500, 7, ["A"], [], 'D:/school/grad-school/Tufts/research/cog-contagion-media-ecosystem/ecosystems/')
+
+def generate_media_ecosystems(citizen_n, resolution, malleables, priors, out_path):
+  for e_type in file_names.keys():
+    generate_media_ecosystem(citizen_n, e_type, resolution, malleables, priors, out_path)
+
+def generate_media_ecosystem(citizen_n, e_type, resolution, malleables, priors, out_path):
+  '''
+  Create JSON files for media ecosystem setups (to generate
+  institutional agents)
+
+  :param citizen_n: The number of citizens in the system.
+  :param e_type: INSTITUTIONAL_ECOSYSTEM_TYPE value
+  :param resolution: Integer belief resolution 
+  :param malleables: A list of malleable variables to put in the
+  agent brain.
+  :param priors: A list of prior variables to put in the
+  agent brain.
+  :param out_path: String path to make ecosystem files in
+  '''
+
+  if not os.path.isdir(f'{out_path}/{resolution}'):
+    os.mkdir(f'{out_path}/{resolution}')
+
+  f = open(f'{out_path}/{resolution}/{file_names[e_type]}.json', 'w')
+  
+  medias = []
+  if e_type == INSTITUTION_ECOSYSTEM_TYPES.ONE_MIN:
+    medias.append({ 'id': 'MIN', 'brain': create_agent_brain(citizen_n, priors, malleables, [], [0], 'discrete') })
+  elif e_type == INSTITUTION_ECOSYSTEM_TYPES.ONE_MAX:
+    medias.append({ 'id': 'MAX', 'brain': create_agent_brain(citizen_n, priors, malleables, [], [resolution-1], 'discrete') })
+  elif e_type == INSTITUTION_ECOSYSTEM_TYPES.ONE_MID:
+    medias.append({ 'id': 'MID', 'brain': create_agent_brain(citizen_n, priors, malleables, [], [math.floor(resolution/2)], 'discrete') })
+  elif e_type == INSTITUTION_ECOSYSTEM_TYPES.TWO_POLARIZED:
+    medias.append({ 'id': 'MIN', 'brain': create_agent_brain(citizen_n, priors, malleables, [], [0], 'discrete') })
+    medias.append({ 'id': 'MAX', 'brain': create_agent_brain(citizen_n+1, priors, malleables, [], [resolution-1], 'discrete') })
+  elif e_type == INSTITUTION_ECOSYSTEM_TYPES.TWO_MID:
+    medias.append({ 'id': 'LOWER', 'brain': create_agent_brain(citizen_n, priors, malleables, [], [math.floor(resolution/4)], 'discrete') })
+    medias.append({ 'id': 'UPPER', 'brain': create_agent_brain(citizen_n+1, priors, malleables, [], [3*math.floor(resolution/4)], 'discrete') })
+  elif e_type == INSTITUTION_ECOSYSTEM_TYPES.THREE_POLARIZED:
+    medias.append({ 'id': 'MIN', 'brain': create_agent_brain(citizen_n, priors, malleables, [], [0], 'discrete') })
+    medias.append({ 'id': 'MID', 'brain': create_agent_brain(citizen_n+1, priors, malleables, [], [math.floor(resolution/2)], 'discrete') })
+    medias.append({ 'id': 'MAX', 'brain': create_agent_brain(citizen_n+2, priors, malleables, [], [resolution-1], 'discrete') })
+  elif e_type == INSTITUTION_ECOSYSTEM_TYPES.THREE_MID:
+    medias.append({ 'id': 'LOWER', 'brain': create_agent_brain(citizen_n, priors, malleables, [], [math.floor(resolution/6)], 'discrete') })
+    medias.append({ 'id': 'MID', 'brain': create_agent_brain(citizen_n+1, priors, malleables, [], [math.floor(resolution/2)], 'discrete') })
+    medias.append({ 'id': 'UPPER', 'brain': create_agent_brain(citizen_n+2, priors, malleables, [], [5*math.floor(resolution/6)], 'discrete') })
+  f.write(json.dumps(medias))
+  f.close()
+
+def read_media_ecosystem_data(path):
+  f = open(path, 'r')
+  raw = f.read()
+  data = json.loads(raw)
+  f.close()
+  return data
