@@ -141,8 +141,8 @@ to create-citizenz
   ]
 
   ;; Generate list of agent initial beliefs for the specified distribution in the interface
-  let prior-vals (initial-belief-dist citizen-init-dist en citizen-priors)
-  let malleable-vals (initial-belief-dist citizen-init-dist en citizen-malleables)
+  let prior-vals (initial-belief-dist citizens citizen-init-dist en citizen-priors)
+  let malleable-vals (initial-belief-dist citizens citizen-init-dist en citizen-malleables)
 
   ;; Create them all at once to speed up the process
   create-citizens en [
@@ -163,65 +163,67 @@ end
 ;; @param beliefs - How many belief propositions to draw for.
 ;; NOTE: This assumes that each proposition in beliefs is drawn from the same
 ;; kind of distribution.
-to-report initial-belief-dist [ dist-type en beliefs ]
-  if dist-type = "uniform" [
-    report uniform-dist-multiple belief-resolution en (length beliefs)
+to-report initial-belief-dist [ agent-set dist-type en beliefs ]
+  if agent-set = citizens [
+    if dist-type = "uniform" [
+      report uniform-dist-multiple belief-resolution en (length beliefs)
+    ]
+    if dist-type = "normal" [
+      report normal-dist-multiple belief-resolution cit-init-normal-mean cit-init-normal-std en (length beliefs)
+    ]
   ]
-  if dist-type = "normal" [
-    report normal-dist-multiple belief-resolution cit-init-normal-mean cit-init-normal-std en (length beliefs)
+  if agent-set = medias [
+    if dist-type = "uniform" [
+      report uniform-dist-multiple belief-resolution media-ecosystem-n (length beliefs)
+    ]
+    if dist-type = "normal" [
+      report normal-dist-multiple belief-resolution media-dist-normal-mean media-dist-normal-std media-ecosystem-n (length beliefs)
+    ]
   ]
 end
 
 to create-media
   if media-agents? [
-    ; Define something that describes the media ecosystem
-    ; Draw from that distribution while creating media agents -- power dist = np.random.power(a, size=n)
-    ; Make a mechanism that distinguishes between "types" of media agents (local vs natl) based on their edges drawn from the dist
-    ; Make a mechanism that makes diff types of agents connect to diff portions of the graph
-    ; - Locals connect to different small clusters
-    ; - Natl connects across the entire graph
-    ; Initialize them w/ a brain but no belief about A
+    if media-ecosystem = "distribution" [
+      ;; Generate list of agent initial beliefs for the specified distribution in the interface
+      let prior-vals (initial-belief-dist medias media-ecosystem-dist media-ecosystem-n citizen-priors)
+      let malleable-vals (initial-belief-dist medias media-ecosystem-dist media-ecosystem-n citizen-malleables)
+
+      let id 0
+      create-medias media-ecosystem-n [
+        set brain create-agent-brain (N + id) citizen-priors citizen-malleables (item id prior-vals) (item id malleable-vals)
+        set messages-heard []
+        set messages-believed []
+        set messages-sent []
+
+        setxy random-xcor random-ycor
+        set color green
+        set id id + 1
+      ]
+    ]
 
 ;    create-medias 1 [
-;      let b create-agent-brain 1 [] [] [] []
-;      set brain b
+;      set brain create-agent-brain (N + 0) citizen-priors citizen-malleables [] [6]
 ;      set cur-message-id 0
-;      setxy -4 1
+;      ;setxy 0 1
+;      setxy random-xcor random-ycor
 ;      set color green
-;      set idee "ONE"
+;      set idee "BEL"
+;      set messages-heard []
+;      set messages-believed []
+;      set messages-sent []
 ;    ]
-;
-;    create-medias 2 [
-;      let b create-agent-brain 2 [] [] [] []
-;      set brain b
+;    create-medias 1 [
+;      set brain create-agent-brain (N + 1) citizen-priors citizen-malleables [] [0]
 ;      set cur-message-id 0
-;      setxy -2 1
+;      ;setxy 0 1
+;      setxy random-xcor random-ycor
 ;      set color green
-;      set idee "TWO"
+;      set idee "DIS"
+;      set messages-heard []
+;      set messages-believed []
+;      set messages-sent []
 ;    ]
-
-    create-medias 1 [
-      set brain create-agent-brain (N + 0) citizen-priors citizen-malleables [] [6]
-      set cur-message-id 0
-      ;setxy 0 1
-      setxy random-xcor random-ycor
-      set color green
-      set idee "BEL"
-      set messages-heard []
-      set messages-believed []
-      set messages-sent []
-    ]
-    create-medias 1 [
-      set brain create-agent-brain (N + 1) citizen-priors citizen-malleables [] [0]
-      set cur-message-id 0
-      ;setxy 0 1
-      setxy random-xcor random-ycor
-      set color green
-      set idee "DIS"
-      set messages-heard []
-      set messages-believed []
-      set messages-sent []
-    ]
   ]
 end
 
@@ -1540,9 +1542,9 @@ NIL
 PLOT
 1625
 73
-2022
-266
-A Histogram
+2023
+223
+Citizen "A" Histogram
 A Value
 Number of Agents
 -4.0
@@ -1557,9 +1559,9 @@ PENS
 
 MONITOR
 1623
-274
+232
 1681
-319
+277
 0
 count citizens with [dict-value brain \"A\" = 0]
 1
@@ -1568,9 +1570,9 @@ count citizens with [dict-value brain \"A\" = 0]
 
 MONITOR
 1680
-274
+232
 1737
-319
+277
 1
 count citizens with [dict-value brain \"A\" = 1]
 1
@@ -1579,9 +1581,9 @@ count citizens with [dict-value brain \"A\" = 1]
 
 MONITOR
 1743
-274
+232
 1809
-319
+277
 2
 count citizens with [dict-value brain \"A\" = 2]
 1
@@ -1590,9 +1592,9 @@ count citizens with [dict-value brain \"A\" = 2]
 
 MONITOR
 1815
-274
+232
 1873
-319
+277
 3
 count citizens with [dict-value brain \"A\" = 3]
 1
@@ -1601,9 +1603,9 @@ count citizens with [dict-value brain \"A\" = 3]
 
 MONITOR
 1870
-274
+232
 1928
-319
+277
 4
 count citizens with [dict-value brain \"A\" = 4]
 1
@@ -1628,10 +1630,10 @@ NIL
 0
 
 SLIDER
-534
-852
-664
-885
+535
+1007
+665
+1040
 threshold
 threshold
 0
@@ -1651,7 +1653,7 @@ epsilon
 epsilon
 0
 belief-resolution
-2.0
+1.0
 1
 1
 NIL
@@ -1686,20 +1688,20 @@ NIL
 1
 
 TEXTBOX
-409
-287
-559
-305
+512
+288
+662
+306
 Number of citizens
 11
 0.0
 1
 
 TEXTBOX
-170
-290
-351
-318
+173
+275
+354
+303
 Threshold to subscribe to institutions
 11
 0.0
@@ -1736,9 +1738,9 @@ Simulation State Plots
 1
 
 SLIDER
-408
+510
 310
-580
+682
 343
 N
 N
@@ -1783,10 +1785,10 @@ Cognitive State
 1
 
 PLOT
-1625
-362
-1894
-597
+1118
+675
+1488
+825
 Social Friend Degree of Nodes
 NIL
 NIL
@@ -1800,21 +1802,11 @@ false
 PENS
 "default" 1.0 1 -16777216 true "" "set-plot-x-range 0 (max [count social-friend-neighbors] of citizens) + 1\nhistogram [count social-friend-neighbors] of citizens"
 
-TEXTBOX
-1620
-330
-1808
-353
-Aggregate Charts
-13
-0.0
-1
-
 CHOOSER
-338
-905
-480
-950
+339
+1060
+481
+1105
 spread-type
 spread-type
 "simple" "complex" "cognitive"
@@ -1831,10 +1823,10 @@ Display
 1
 
 SWITCH
-28
-580
-147
-613
+29
+737
+148
+770
 load-graph?
 load-graph?
 1
@@ -1842,10 +1834,10 @@ load-graph?
 -1000
 
 INPUTBOX
-26
-620
-241
-680
+27
+777
+242
+837
 load-graph-path
 ./exp1-graph.csv
 1
@@ -1853,10 +1845,10 @@ load-graph-path
 String
 
 INPUTBOX
-28
-685
-243
-745
+29
+843
+244
+903
 save-graph-path
 ./exp1-graph.csv
 1
@@ -1881,20 +1873,20 @@ NIL
 1
 
 CHOOSER
-28
-904
-181
-949
+29
+1059
+182
+1104
 cognitive-fn
 cognitive-fn
 "linear-gullible" "linear-stubborn" "linear-mid" "threshold-gullible" "threshold-mid" "threshold-stubborn" "sigmoid-gullible" "sigmoid-stubborn" "sigmoid-mid"
 7
 
 SLIDER
-174
-850
-348
-883
+175
+1005
+349
+1038
 simple-spread-chance
 simple-spread-chance
 0
@@ -1906,10 +1898,10 @@ NIL
 HORIZONTAL
 
 SLIDER
-353
-851
-527
-884
+354
+1006
+528
+1039
 complex-spread-ratio
 complex-spread-ratio
 0
@@ -1921,10 +1913,10 @@ NIL
 HORIZONTAL
 
 CHOOSER
-193
-905
-332
-950
+194
+1060
+333
+1105
 brain-type
 brain-type
 "discrete" "continuous"
@@ -1975,9 +1967,9 @@ PENS
 
 MONITOR
 1925
-274
+232
 1983
-319
+277
 5
 count citizens with [dict-value brain \"A\" = 5]
 17
@@ -1986,9 +1978,9 @@ count citizens with [dict-value brain \"A\" = 5]
 
 MONITOR
 1987
-274
+232
 2045
-319
+277
 6
 count citizens with [dict-value brain \"A\" = 6]
 17
@@ -2007,10 +1999,10 @@ media-agents?
 -1000
 
 SLIDER
-28
-994
-201
-1027
+29
+1149
+202
+1182
 cognitive-exponent
 cognitive-exponent
 -10
@@ -2022,10 +2014,10 @@ NIL
 HORIZONTAL
 
 SLIDER
-28
-954
-201
-987
+29
+1109
+202
+1142
 cognitive-scalar
 cognitive-scalar
 -20
@@ -2037,10 +2029,10 @@ NIL
 HORIZONTAL
 
 SWITCH
-208
-954
-353
-987
+209
+1109
+354
+1142
 cognitive-scalar?
 cognitive-scalar?
 1
@@ -2048,10 +2040,10 @@ cognitive-scalar?
 -1000
 
 SWITCH
-212
-995
-377
-1028
+213
+1150
+378
+1183
 cognitive-exponent?
 cognitive-exponent?
 0
@@ -2059,10 +2051,10 @@ cognitive-exponent?
 -1000
 
 SLIDER
-28
-1039
-201
-1072
+29
+1195
+202
+1228
 cognitive-translate
 cognitive-translate
 -10
@@ -2074,10 +2066,10 @@ NIL
 HORIZONTAL
 
 SWITCH
-212
-1039
-375
-1072
+213
+1195
+376
+1228
 cognitive-translate?
 cognitive-translate?
 0
@@ -2085,30 +2077,30 @@ cognitive-translate?
 -1000
 
 TEXTBOX
-32
-826
-220
-849
+33
+982
+221
+1005
 Contagion Parameters
 12
 0.0
 1
 
 CHOOSER
-251
-574
-390
-619
+252
+732
+391
+777
 graph-type
 graph-type
 "erdos-renyi" "watts-strogatz" "barabasi-albert" "mag" "facebook" "kronecker"
 1
 
 SLIDER
-253
-645
-376
-678
+254
+803
+377
+836
 erdos-renyi-p
 erdos-renyi-p
 0
@@ -2130,20 +2122,20 @@ Institutional Agent Parameters
 1
 
 TEXTBOX
-28
-533
-216
-556
+29
+690
+217
+713
 Graph Parameters
 12
 0.0
 1
 
 SLIDER
-398
-598
-532
-631
+399
+756
+533
+789
 watts-strogatz-p
 watts-strogatz-p
 0
@@ -2155,10 +2147,10 @@ NIL
 HORIZONTAL
 
 SLIDER
-399
-638
-526
-671
+400
+796
+527
+829
 watts-strogatz-k
 watts-strogatz-k
 0
@@ -2170,10 +2162,10 @@ NIL
 HORIZONTAL
 
 SLIDER
-251
-712
-376
-745
+252
+869
+377
+902
 ba-m
 ba-m
 0
@@ -2185,30 +2177,30 @@ NIL
 HORIZONTAL
 
 TEXTBOX
-253
-689
-368
-712
+254
+847
+369
+870
 Barabasi-Albert (ba)
 11
 0.0
 1
 
 CHOOSER
-249
-780
-388
-825
+250
+937
+389
+982
 mag-style
 mag-style
 "default" "homophilic" "heterophilic"
 0
 
 SWITCH
-33
-850
-166
-883
+34
+1005
+167
+1038
 contagion-on?
 contagion-on?
 1
@@ -2232,9 +2224,9 @@ HORIZONTAL
 
 SLIDER
 550
-676
+834
 707
-709
+867
 citizen-citizen-influence
 citizen-citizen-influence
 0
@@ -2246,10 +2238,10 @@ NIL
 HORIZONTAL
 
 SLIDER
-551
-595
-704
-628
+552
+753
+705
+786
 citizen-media-influence
 citizen-media-influence
 0
@@ -2261,10 +2253,10 @@ NIL
 HORIZONTAL
 
 SLIDER
-551
-635
-706
-668
+552
+793
+707
+826
 media-citizen-influence
 media-citizen-influence
 0
@@ -2276,20 +2268,20 @@ NIL
 HORIZONTAL
 
 TEXTBOX
-552
-573
-702
-591
+553
+730
+703
+748
 Link weight settings
 11
 0.0
 1
 
 INPUTBOX
-398
-697
-541
-782
+399
+855
+542
+940
 kronecker-seed
 [[0.6,0.16,0.24],\n  [0.40,0.2,0.4],\n  [0.21,0.14,0.65]]
 1
@@ -2297,10 +2289,10 @@ kronecker-seed
 String
 
 SLIDER
-398
-788
-490
-821
+399
+946
+491
+979
 kronecker-k
 kronecker-k
 0
@@ -2312,10 +2304,10 @@ NIL
 HORIZONTAL
 
 TEXTBOX
-402
-678
-552
-696
+403
+836
+553
+854
 Kronecker
 11
 0.0
@@ -2355,7 +2347,7 @@ CHOOSER
 message-file
 message-file
 "default" "split" "gradual"
-0
+2
 
 PLOT
 732
@@ -2412,80 +2404,80 @@ PENS
 "default" 1.0 0 -16777216 true "" "plot graph-disagreement \"A\""
 
 TEXTBOX
-255
-625
-405
-643
+256
+783
+406
+801
 Erdos-Renyi (random)
 11
 0.0
 1
 
 TEXTBOX
-398
-574
-548
-592
+399
+732
+549
+750
 Watts-Strogatz (small world)
 11
 0.0
 1
 
 TEXTBOX
-252
-758
-402
-776
+253
+916
+403
+934
 Multiplicate Attribute Graph
 11
 0.0
 1
 
 TEXTBOX
-28
-557
-178
-575
+29
+715
+179
+733
 Saving/loading
 11
 0.0
 1
 
 TEXTBOX
-408
-267
-558
-285
+510
+268
+660
+286
 Citizen Parameters
 12
 0.0
 1
 
 CHOOSER
-407
-369
-545
-414
+512
+374
+650
+419
 citizen-init-dist
 citizen-init-dist
 "uniform" "normal"
-1
+0
 
 TEXTBOX
-408
-352
-558
-370
+513
+356
+663
+374
 Initial belief distribution
 11
 0.0
 1
 
 SLIDER
-552
-371
-680
-404
+510
+426
+638
+459
 cit-init-normal-mean
 cit-init-normal-mean
 0
@@ -2497,10 +2489,10 @@ NIL
 HORIZONTAL
 
 SLIDER
-553
-410
-680
-443
+512
+465
+639
+498
 cit-init-normal-std
 cit-init-normal-std
 0
@@ -2542,10 +2534,10 @@ Predetermined parameters
 1
 
 PLOT
-1169
-455
-1547
-669
+1119
+456
+1497
+670
 First degree power distribution
 NIL
 NIL
@@ -2557,7 +2549,188 @@ true
 false
 "" ""
 PENS
-"default" 1.0 1 -16777216 true "" "plot-pen-reset  ;; erase what we plotted before\n\nlet power-dist agents-power \"A\"\nhistogram map [ agent -> (item 1 (item 0 agent)) ] power-dist "
+"default" 1.0 1 -16777216 true "" "plot-pen-reset  ;; erase what we plotted before\n\nlet power-dist agents-power \"A\"\nlet powers map [ agent -> (item 1 (item 0 agent)) ] power-dist \nset-plot-x-range 0 (max powers)\n\nhistogram powers"
+
+CHOOSER
+28
+509
+167
+555
+media-ecosystem
+media-ecosystem
+"predetermined" "distribution"
+1
+
+INPUTBOX
+173
+509
+430
+569
+media-ecosystem-path
+D:/school/grad-school/Tufts/research/cog-contagion-media-ecosystem/ecosystems/
+1
+0
+String
+
+CHOOSER
+27
+575
+172
+621
+media-ecosystem-dist
+media-ecosystem-dist
+"uniform" "normal"
+1
+
+SLIDER
+26
+626
+176
+660
+media-dist-normal-mean
+media-dist-normal-mean
+0
+belief-resolution
+3.0
+1
+1
+NIL
+HORIZONTAL
+
+SLIDER
+182
+627
+334
+661
+media-dist-normal-std
+media-dist-normal-std
+0
+belief-resolution
+1.0
+1
+1
+NIL
+HORIZONTAL
+
+SLIDER
+182
+587
+324
+621
+media-ecosystem-n
+media-ecosystem-n
+0
+100
+10.0
+1
+1
+NIL
+HORIZONTAL
+
+CHOOSER
+344
+587
+486
+633
+media-ecosystem-file
+media-ecosystem-file
+"test"
+0
+
+PLOT
+1618
+285
+2020
+435
+Media "A" Histogram
+NIL
+NIL
+0.0
+10.0
+0.0
+10.0
+true
+false
+"" ""
+PENS
+"default" 1.0 1 -16777216 true "" "plot-pen-reset  ;; erase what we plotted before\nset-plot-x-range -1 (belief-resolution + 1)\n\nhistogram [dict-value brain \"A\"] of medias"
+
+MONITOR
+1617
+442
+1675
+488
+0
+count medias with [dict-value brain \"A\" = 0]
+0
+1
+11
+
+MONITOR
+1679
+443
+1737
+489
+1
+count medias with [dict-value brain \"A\" = 1]
+0
+1
+11
+
+MONITOR
+1739
+443
+1797
+489
+2
+count medias with [dict-value brain \"A\" = 2]
+0
+1
+11
+
+MONITOR
+1802
+443
+1860
+489
+3
+count medias with [dict-value brain \"A\" = 3]
+0
+1
+11
+
+MONITOR
+1863
+444
+1921
+490
+4
+count medias with [dict-value brain \"A\" = 4]
+0
+1
+11
+
+MONITOR
+1924
+445
+1982
+491
+5
+count medias with [dict-value brain \"A\" = 5]
+0
+1
+11
+
+MONITOR
+1985
+445
+2043
+491
+6
+count medias with [dict-value brain \"A\" = 6]
+0
+1
+11
 
 @#$#@#$#@
 ## WHAT IS IT?
