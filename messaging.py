@@ -7,6 +7,8 @@ from copy import deepcopy
 import sys
 from enum import Enum
 import os
+from nlogo_graphs import INSTITUTION_ECOSYSTEM_TYPES
+from nlogo_graphs import file_names as eco_file_names
 
 """
 MESSAGES
@@ -313,7 +315,12 @@ file_names = {
   INSTITUTION_MESSAGING_TYPES.GRADUAL: 'gradual',
 }
 
-def generate_messaging_patterns(start, stop, m_type, resolution, bel, out_path):
+def generate_all_messaging_patterns(start, stop, resolution, bel, out_path):
+  for m_type in INSTITUTION_MESSAGING_TYPES:
+    for eco_type in INSTITUTION_ECOSYSTEM_TYPES:
+      generate_messaging_patterns(start, stop, m_type, eco_type, resolution, bel, out_path)
+
+def generate_messaging_patterns(start, stop, m_type, eco_type, resolution, bel, out_path):
   '''
   Create JSON files for messaging patterns to be used by instituional agents
   for experiments.
@@ -323,6 +330,7 @@ def generate_messaging_patterns(start, stop, m_type, resolution, bel, out_path):
   :param start: Integer start timestep value for the simulation
   :param stop: Integer end timestep value for the simulation
   :param m_type: INSTITUTIONAL_MESSAGING_TYPES value for a pattern to use
+  :param eco_type: INSTITUTIONAL_ECOSYSTEM_TYPES value for a pattern to use
   :param resolution: Integer belief resolution (must be >= stop)
   :param bel: String belief key to make messages for
   :param out_path: String path to make messaging files in
@@ -330,27 +338,77 @@ def generate_messaging_patterns(start, stop, m_type, resolution, bel, out_path):
 
   if not os.path.isdir(f'{out_path}/{resolution}'):
     os.mkdir(f'{out_path}/{resolution}')
+  if not os.path.isdir(f'{out_path}/{resolution}/{eco_file_names[eco_type]}'):
+    os.mkdir(f'{out_path}/{resolution}/{eco_file_names[eco_type]}')
 
-  f = open(f'{out_path}/{resolution}/{file_names[m_type]}.json', 'w')
+  f = open(f'{out_path}/{resolution}/{eco_file_names[eco_type]}/{file_names[m_type]}.json', 'w')
   
   pattern_obj = { 'start': start, 'stop': stop }
-  if m_type == INSTITUTION_MESSAGING_TYPES.DEFAULT:
-    pattern_obj[f'{start}'] = {
-      'BEL': [ { f'{bel}': resolution-1 } ]
-    }
-  elif m_type == INSTITUTION_MESSAGING_TYPES.SPLIT:
-    pattern_obj[f'{start}'] = {
-      'BEL': [ { f'{bel}': resolution-1 } ]
-    }
-    pattern_obj[f'{round(stop/2)}'] = {
-      'BEL': [ { f'{bel}': 0 } ]
-    }
+  if m_type == INSTITUTION_MESSAGING_TYPES.DEFAULT or m_type == INSTITUTION_MESSAGING_TYPES.SPLIT:
+    pattern_obj[f'{start}'] = {}
+    if eco_type == INSTITUTION_ECOSYSTEM_TYPES.ONE_MAX:
+      pattern_obj[f'{start}']['MAX'] = [ { f'{bel}': resolution-1 } ]
+    elif eco_type == INSTITUTION_ECOSYSTEM_TYPES.ONE_MIN:
+      pattern_obj[f'{start}']['MIN'] = [ { f'{bel}': 0 } ]
+    elif eco_type == INSTITUTION_ECOSYSTEM_TYPES.ONE_MID:
+      pattern_obj[f'{start}']['MID'] = [ { f'{bel}': math.floor(resolution/2) } ]
+    elif eco_type == INSTITUTION_ECOSYSTEM_TYPES.TWO_POLARIZED:
+      pattern_obj[f'{start}']['MAX'] = [ { f'{bel}': resolution-1 } ]
+      pattern_obj[f'{start}']['MIN'] = [ { f'{bel}': 0 } ]
+    elif eco_type == INSTITUTION_ECOSYSTEM_TYPES.TWO_MID:
+      pattern_obj[f'{start}']['LOWER'] = [ { f'{bel}': math.floor(resolution/4) } ]
+      pattern_obj[f'{start}']['UPPER'] = [ { f'{bel}': 3*math.floor(resolution/4) } ]
+    elif eco_type == INSTITUTION_ECOSYSTEM_TYPES.THREE_POLARIZED:
+      pattern_obj[f'{start}']['MIN'] = [ { f'{bel}': 0 } ]
+      pattern_obj[f'{start}']['MID'] = [ { f'{bel}': math.floor(resolution/2) } ]
+      pattern_obj[f'{start}']['MAX'] = [ { f'{bel}': resolution-1 } ]
+    elif eco_type == INSTITUTION_ECOSYSTEM_TYPES.THREE_MID:
+      pattern_obj[f'{start}']['MIN'] = [ { f'{bel}': math.floor(resolution/6) } ]
+      pattern_obj[f'{start}']['MID'] = [ { f'{bel}': math.floor(resolution/2) } ]
+      pattern_obj[f'{start}']['MAX'] = [ { f'{bel}': 5*math.floor(resolution/6) } ]
+  if m_type == INSTITUTION_MESSAGING_TYPES.SPLIT:
+    pattern_obj[f'{round(stop/2)}'] = {}
+    if eco_type == INSTITUTION_ECOSYSTEM_TYPES.ONE_MAX:
+      pattern_obj[f'{round(stop/2)}']['MAX'] = [ { f'{bel}': 0 } ]
+    elif eco_type == INSTITUTION_ECOSYSTEM_TYPES.ONE_MIN:
+      pattern_obj[f'{round(stop/2)}']['MIN'] = [ { f'{bel}': resolution-1 } ]
+    elif eco_type == INSTITUTION_ECOSYSTEM_TYPES.ONE_MID:
+      pattern_obj[f'{round(stop/2)}']['MID'] = [ { f'{bel}': math.floor(resolution/2) } ]
+    elif eco_type == INSTITUTION_ECOSYSTEM_TYPES.TWO_POLARIZED:
+      pattern_obj[f'{round(stop/2)}']['MIN'] = [ { f'{bel}': resolution-1 } ]
+      pattern_obj[f'{round(stop/2)}']['MAX'] = [ { f'{bel}': 0 } ]
+    elif eco_type == INSTITUTION_ECOSYSTEM_TYPES.TWO_MID:
+      pattern_obj[f'{round(stop/2)}']['UPPER'] = [ { f'{bel}': math.floor(resolution/4) } ]
+      pattern_obj[f'{round(stop/2)}']['LOWER'] = [ { f'{bel}': 3*math.floor(resolution/4) } ]
+    elif eco_type == INSTITUTION_ECOSYSTEM_TYPES.THREE_POLARIZED:
+      pattern_obj[f'{round(stop/2)}']['MAX'] = [ { f'{bel}': 0 } ]
+      pattern_obj[f'{round(stop/2)}']['MID'] = [ { f'{bel}': math.floor(resolution/2) } ]
+      pattern_obj[f'{round(stop/2)}']['MIN'] = [ { f'{bel}': resolution-1 } ]
+    elif eco_type == INSTITUTION_ECOSYSTEM_TYPES.THREE_MID:
+      pattern_obj[f'{round(stop/2)}']['MAX'] = [ { f'{bel}': math.floor(resolution/6) } ]
+      pattern_obj[f'{round(stop/2)}']['MID'] = [ { f'{bel}': math.floor(resolution/2) } ]
+      pattern_obj[f'{round(stop/2)}']['MIN'] = [ { f'{bel}': 5*math.floor(resolution/6) } ]
   elif m_type == INSTITUTION_MESSAGING_TYPES.GRADUAL:
     buckets = 6
     step = math.floor(60 / buckets)
     for t in range(start, 61, step):
-      pattern_obj[f'{t}'] = {
-        'BEL': [ { f'{bel}': (resolution-1) - math.floor(((resolution-1) / buckets) * (t / step)) } ]
-      }
+      pattern_obj[f'{t}'] = {}
+      if eco_type == INSTITUTION_ECOSYSTEM_TYPES.ONE_MAX:
+        pattern_obj[f'{t}']['MAX'] = [ { f'{bel}': (resolution-1) - math.floor(((resolution-1) / buckets) * (t / step)) } ]
+      elif eco_type == INSTITUTION_ECOSYSTEM_TYPES.ONE_MIN:
+        pattern_obj[f'{t}']['MIN'] = [ { f'{bel}': math.floor(((resolution-1) / buckets) * (t / step)) } ]
+      elif eco_type == INSTITUTION_ECOSYSTEM_TYPES.ONE_MID:
+        pattern_obj[f'{t}']['MID'] = [ { f'{bel}': 3*math.floor((resolution-1)/4) - math.floor((2*((resolution-1)/4) / buckets) * (t / step)) } ]
+      elif eco_type == INSTITUTION_ECOSYSTEM_TYPES.TWO_POLARIZED:
+        pattern_obj[f'{t}']['MIN'] = [ { f'{bel}': math.floor(((resolution-1) / buckets) * (t / step)) } ]
+        pattern_obj[f'{t}']['MAX'] = [ { f'{bel}': (resolution-1) - math.floor(((resolution-1) / buckets) * (t / step)) } ]
+      elif eco_type == INSTITUTION_ECOSYSTEM_TYPES.TWO_MID:
+        pattern_obj[f'{t}']['UPPER'] = [ { f'{bel}': 3*math.floor((resolution-1)/4) - math.floor((2*((resolution-1)/4) / buckets) * (t / step)) } ]
+        pattern_obj[f'{t}']['LOWER'] = [ { f'{bel}': math.floor((resolution-1)/4) + math.floor((2*((resolution-1)/4) / buckets) * (t / step)) } ]
+      elif eco_type == INSTITUTION_ECOSYSTEM_TYPES.THREE_POLARIZED:
+        pattern_obj[f'{t}']['MIN'] = [ { f'{bel}': math.floor(((resolution-1) / buckets) * (t / step)) } ]
+        pattern_obj[f'{t}']['MAX'] = [ { f'{bel}': (resolution-1) - math.floor(((resolution-1) / buckets) * (t / step)) } ]
+        pattern_obj[f'{t}']['MID'] = [ { f'{bel}': 3*math.floor((resolution-1)/4) - math.floor((2*((resolution-1)/4) / buckets) * (t / step)) } ]
+      # elif eco_type == INSTITUTION_ECOSYSTEM_TYPES.THREE_MID:
   f.write(json.dumps(pattern_obj))
   f.close()

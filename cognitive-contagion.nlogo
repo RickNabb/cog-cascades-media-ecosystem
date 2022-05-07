@@ -208,7 +208,7 @@ to create-media
       show item 0 ecosystem
       foreach ecosystem [ m ->
         create-medias 1 [
-          set idee (dict-value m "ID")
+          set idee (dict-value m "id")
           set brain (dict-value m "brain")
           set messages-heard []
           set messages-believed []
@@ -970,11 +970,11 @@ to-report normal-dist-multiple [ maxx mu sigma en k ]
 end
 
 to-report load-messages-over-time [ path filename ]
-  if not file-exists? (word path "/" belief-resolution) [
-    error "Messaging directory does not exist for current resolution"
+  if not file-exists? (word path "/" belief-resolution "/" media-ecosystem-file) [
+    error "Messaging directory does not exist for current resolution and ecosystem type"
   ]
   report py:runresult(
-    word "read_message_over_time_data('" path "/" belief-resolution "/" filename "')"
+    word "read_message_over_time_data('" path "/" belief-resolution "/" media-ecosystem-file "/" filename "')"
   )
 end
 
@@ -1468,8 +1468,8 @@ end
 GRAPHICS-WINDOW
 1169
 13
-1601
-446
+1557
+402
 -1
 -1
 11.52
@@ -2323,7 +2323,7 @@ INPUTBOX
 244
 499
 messages-data-path
-D:/school/grad-school/Tufts/research/cognitive-contagion/messaging-data/
+D:/school/grad-school/Tufts/research/cog-contagion-media-ecosystem/messaging-data/
 1
 0
 String
@@ -2525,7 +2525,7 @@ CHOOSER
 institution-tactic
 institution-tactic
 "predetermined" "broadcast-brain" "appeal-mean" "appeal-mode" "appeal-median" "max-reach-no-chain"
-1
+0
 
 TEXTBOX
 31
@@ -2559,7 +2559,7 @@ CHOOSER
 28
 509
 167
-555
+554
 media-ecosystem
 media-ecosystem
 "predetermined" "distribution"
@@ -2580,7 +2580,7 @@ CHOOSER
 27
 575
 172
-621
+620
 media-ecosystem-dist
 media-ecosystem-dist
 "uniform" "normal"
@@ -2590,7 +2590,7 @@ SLIDER
 26
 626
 176
-660
+659
 media-dist-normal-mean
 media-dist-normal-mean
 0
@@ -2605,7 +2605,7 @@ SLIDER
 182
 627
 334
-661
+660
 media-dist-normal-std
 media-dist-normal-std
 0
@@ -2620,7 +2620,7 @@ SLIDER
 182
 587
 324
-621
+620
 media-ecosystem-n
 media-ecosystem-n
 0
@@ -2635,11 +2635,11 @@ CHOOSER
 344
 587
 486
-633
+632
 media-ecosystem-file
 media-ecosystem-file
 "one-min" "one-mid" "one-max" "two-polarized" "two-mid" "three-polarized" "three-mid"
-3
+5
 
 PLOT
 1618
@@ -2663,7 +2663,7 @@ MONITOR
 1617
 442
 1675
-488
+487
 0
 count medias with [dict-value brain \"A\" = 0]
 0
@@ -2674,7 +2674,7 @@ MONITOR
 1679
 443
 1737
-489
+488
 1
 count medias with [dict-value brain \"A\" = 1]
 0
@@ -2685,7 +2685,7 @@ MONITOR
 1739
 443
 1797
-489
+488
 2
 count medias with [dict-value brain \"A\" = 2]
 0
@@ -2696,7 +2696,7 @@ MONITOR
 1802
 443
 1860
-489
+488
 3
 count medias with [dict-value brain \"A\" = 3]
 0
@@ -2707,7 +2707,7 @@ MONITOR
 1863
 444
 1921
-490
+489
 4
 count medias with [dict-value brain \"A\" = 4]
 0
@@ -2718,7 +2718,7 @@ MONITOR
 1924
 445
 1982
-491
+490
 5
 count medias with [dict-value brain \"A\" = 5]
 0
@@ -2729,7 +2729,7 @@ MONITOR
 1985
 445
 2043
-491
+490
 6
 count medias with [dict-value brain \"A\" = 6]
 0
