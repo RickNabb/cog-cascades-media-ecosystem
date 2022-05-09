@@ -409,6 +409,9 @@ def generate_messaging_patterns(start, stop, m_type, eco_type, resolution, bel, 
         pattern_obj[f'{t}']['MIN'] = [ { f'{bel}': math.floor(((resolution-1) / buckets) * (t / step)) } ]
         pattern_obj[f'{t}']['MAX'] = [ { f'{bel}': (resolution-1) - math.floor(((resolution-1) / buckets) * (t / step)) } ]
         pattern_obj[f'{t}']['MID'] = [ { f'{bel}': 3*math.floor((resolution-1)/4) - math.floor((2*((resolution-1)/4) / buckets) * (t / step)) } ]
-      # elif eco_type == INSTITUTION_ECOSYSTEM_TYPES.THREE_MID:
+      elif eco_type == INSTITUTION_ECOSYSTEM_TYPES.THREE_MID:
+        pattern_obj[f'{t}']['UPPER'] = [ { f'{bel}': 5*math.floor((resolution-1)/6) - math.floor((4*((resolution-1)/6) / buckets) * (t / step)) } ]
+        pattern_obj[f'{t}']['LOWER'] = [ { f'{bel}': math.floor((resolution-1)/6) + math.floor((4*((resolution-1)/6) / buckets) * (t / step)) } ]
+        pattern_obj[f'{t}']['MID'] = [ { f'{bel}': 3*math.floor((resolution-1)/4) - math.floor((2*((resolution-1)/4) / buckets) * (t / step)) } ]
   f.write(json.dumps(pattern_obj))
   f.close()

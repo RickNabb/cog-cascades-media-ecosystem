@@ -1,3 +1,4 @@
+from email import message
 from enum import Enum
 from random import *
 from utils import *
@@ -234,7 +235,7 @@ def nlogo_parse_chunk(chunk):
 FILE I/O
 '''
 
-DATA_DIR = 'D:/school/grad-school/Tufts/research/cognitive-contagion'
+DATA_DIR = 'D:/school/grad-school/Tufts/research/cog-contagion-media-ecosystem'
 
 def save_graph(path, cit, cit_social, media, media_sub):
     cit_arr = nlogo_list_to_arr(nlogo_replace_agents(cit, [ 'citizen' ]))
@@ -318,6 +319,7 @@ def process_chart_data(path):
   raw = f.read()
   f.close()
   chunks = raw.split('\n\n')
+  print(path)
 
   model_lines = chunks[1].replace('"','').split('\n')
   model_keys = model_lines[1].split(',')
@@ -406,16 +408,18 @@ Given some multi-chart data, plot it and save the plot.
 :param out_filename: A filename to save results as, defaults to 'aggregate-chart'
 :param show_plot: Whether or not to display the plot before saving.
 '''
-def plot_multi_chart_data(multi_data, props, out_path, out_filename='aggregate-chart', show_plot=False):
-  plot = plot_nlogo_multi_chart_line(props, multi_data)
-  plt.savefig(f'{out_path}/{out_filename}_line.png')
-  if show_plot: plt.show()
-  plt.close()
+def plot_multi_chart_data(types, multi_data, props, out_path, out_filename='aggregate-chart', show_plot=False):
+  if PLOT_TYPES.LINE in types:
+    plot = plot_nlogo_multi_chart_line(props, multi_data)
+    plt.savefig(f'{out_path}/{out_filename}_line.png')
+    if show_plot: plt.show()
+    plt.close()
 
-  plot = plot_nlogo_multi_chart_stacked(props, multi_data)
-  plt.savefig(f'{out_path}/{out_filename}_stacked.png')
-  if show_plot: plt.show()
-  plt.close()
+  if PLOT_TYPES.STACK in types:
+    plot = plot_nlogo_multi_chart_stacked(props, multi_data)
+    plt.savefig(f'{out_path}/{out_filename}_stacked.png')
+    if show_plot: plt.show()
+    plt.close()
 
 '''
 Plot multiple NetLogo chart data sets on a single plot. 
@@ -431,10 +435,10 @@ def plot_nlogo_multi_chart_stacked(props, multi_data):
   fig, (ax) = plt.subplots(1, figsize=(8,6))
   # ax, ax2 = fig.add_subplot(2)
   ax.set_ylim([0, 1])
-  y_min = int(props['y min'])
-  y_max = int(props['y max'])
-  x_min = int(props['x min'])
-  x_max = int(props['x max'])
+  y_min = int(round(float(props['y min'])))
+  y_max = int(round(float(props['y max'])))
+  x_min = int(round(float(props['x min'])))
+  x_max = int(round(float(props['x max'])))
   plt.yticks(np.arange(y_min, y_max+0.2, step=0.2))
   plt.xticks(np.arange(x_min, x_max+10, step=10))
   ax.set_ylabel("Portion of agents who believe b")
@@ -478,21 +482,26 @@ describes pen colors, x and y min and max, etc.
 '''
 def plot_nlogo_multi_chart_line(props, multi_data):
   # series = pd.Series(data)
+  # print(multi_data)
   fig, (ax) = plt.subplots(1, figsize=(8,6))
   # ax, ax2 = fig.add_subplot(2)
   ax.set_ylim([0, 1.1])
-  y_min = int(props['y min'])
-  y_max = int(props['y max'])
-  x_min = int(props['x min'])
-  x_max = int(props['x max'])
+  y_min = int(round(float(props['y min'])))
+  y_max = int(round(float(props['y max'])))
+  x_min = int(round(float(props['x min'])))
+  x_max = int(round(float(props['x max'])))
   plt.yticks(np.arange(y_min, y_max+0.2, step=0.2))
   plt.xticks(np.arange(x_min, x_max+10, step=10))
   ax.set_ylabel("% of agents who believe b")
   ax.set_xlabel("Time Step")
 
-  multi_data_keys_int = list(map(lambda el: int(el), multi_data.keys()))
-  resolution = int(max(multi_data_keys_int))+1
-  line_color = lambda key: f"#{rgb_to_hex([ 255 - round((255/(resolution-1))*int(key)), 0, round((255/(resolution-1)) * int(key)) ])}"
+  line_color = lambda key: '#000000'
+
+  if list(multi_data.keys())[0] != 'default':
+    # This is specific code to set the colors for belief resolutions
+    multi_data_keys_int = list(map(lambda el: int(el), multi_data.keys()))
+    resolution = int(max(multi_data_keys_int))+1
+    line_color = lambda key: f"#{rgb_to_hex([ 255 - round((255/(resolution-1))*int(key)), 0, round((255/(resolution-1)) * int(key)) ])}"
  
   for key in multi_data:
     mean_vec = multi_data[key].mean(0)
@@ -895,6 +904,54 @@ ANALYSIS
 ##################
 """
 
+class PLOT_TYPES(Enum):
+  LINE = 0
+  STACK = 1
+
+def process_exp_outputs(param_combos, plots, path):
+  '''
+  Process the output of a NetLogo experiment, aggregating all results
+  over simulation runs and generating plots for them according to
+  all the parameter combinations denoted in param_combos.
+  
+  :param param_combos: A list of parameters where their values are
+  lists (e.g. [ ['simple','complex'], ['default', 'gradual'] ])
+  :param plots: A list of dictionaries keyed by the name of the NetLogo
+  plot to process, with value of a list of PLOT_TYPE
+  (e.g. { 'polarization': [PLOT_TYPES.LINE], 'agent-beliefs': [...] })
+  :param path: The root path to begin processing in.
+  '''
+  combos = []
+  for combo in itertools.product(*param_combos):
+    combos.append(combo)
+
+  if not os.path.isdir(f'{path}/results'):
+    os.mkdir(f'{path}/results')
+
+  for combo in combos:
+    for (plot_name, plot_types) in plots.items():
+      # print(plot_name, plot_types)
+      (multi_data, props, model_params) = process_multi_chart_data(f'{path}/{"/".join(combo)}', plot_name)
+      plot_multi_chart_data(plot_types, multi_data, props, f'{path}/results', f'{"-".join(combo)}_{plot_name}-agg-chart')
+
+def process_predetermined_ecosystems_outputs(path):
+  brain_types = ['discrete']
+  contagion_types = [ 'simple', 'complex', 'cognitive' ]
+  cognitive_fns = [ 'sigmoid-stubborn' ]
+  message_files = [ '50-50', 'default', 'gradual' ]
+  graph_types = [ 'erdos-renyi', 'watts-strogatz', 'barabasi-albert' ]
+  media_ecosystem = [ 'two-polarized', 'two-mid', 'three-polarized', 'three-mid' ]
+  init_cit_dist = ['normal', 'uniform']
+  media_tactics = [ 'predetermined' ]
+
+  process_exp_outputs(
+    [media_tactics,media_ecosystem,brain_types,init_cit_dist,contagion_types,message_files,cognitive_fns,graph_types],
+    {'percent-agent-beliefs': [PLOT_TYPES.LINE, PLOT_TYPES.STACK],
+    'polarization': [PLOT_TYPES.LINE],
+    'disagreement': [PLOT_TYPES.LINE],
+    'homophily': [PLOT_TYPES.LINE]},
+    path)
+
 '''
 Process charts for the simple-complex comparison: the experiment where one
 media agent tries to sway the entire population. It runs each contagion type for
@@ -905,13 +962,10 @@ def process_simple_complex_exp_outputs(path):
   contagion_types = [ 'simple', 'complex' ]
   message_files = [ '50-50', 'default', 'gradual' ]
 
-  if not os.path.isdir(f'{path}/results'):
-    os.mkdir(f'{path}/results')
-
-  for ct in contagion_types:
-    for mf in message_files:
-      (multi_data, props, model_params) = process_multi_chart_data(f'{path}/{ct}/{mf}',  'percent-agent-beliefs')
-      plot_multi_chart_data(f'{path}/results', f'{ct}-{mf}-agg-chart')
+  process_exp_outputs(
+    [contagion_types,message_files],
+    {'percent-agent-beliefs': [PLOT_TYPES.LINE, PLOT_TYPES.STACK]},
+    path)
 
 '''
 Process data for the cognitive contagion function experiments. This generates
@@ -922,35 +976,28 @@ def process_cognitive_exp_outputs(path):
   cognitive_fns = [ 'linear-mid', 'linear-gullible', 'linear-stubborn', 'sigmoid-gullible', 'sigmoid-mid', 'sigmoid-stubborn', 'threshold-mid', 'threshold-gullible', 'threshold-stubborn' ]
   message_files = [ '50-50', 'default', 'gradual' ]
 
-  if not os.path.isdir(f'{path}/results'):
-    os.mkdir(f'{path}/results')
-
-  for cf in cognitive_fns:
-    for mf in message_files:
-      (multi_data, props, model_params) = process_multi_chart_data(f'{path}/cognitive/{mf}/{cf}',  'percent-agent-beliefs')
-      plot_multi_chart_data(multi_data, props, f'{path}/results',f'{mf}-{cf}-agg-chart')
+  process_exp_outputs(
+    [cognitive_fns,message_files],
+    {'percent-agent-beliefs': [PLOT_TYPES.LINE, PLOT_TYPES.STACK]},
+    path)
 
 '''
 Process data for the between-graphs experiments: those that run...
   CONTAGION_METHOD X MESSAGES X GRAPH_TYPE
 '''
 def process_graph_exp_outputs(path):
-  # brain_types = ['discrete', 'continuous']
   brain_types = ['discrete']
   contagion_types = [ 'simple', 'complex', 'cognitive' ]
   cognitive_fns = [ 'sigmoid-stubborn' ]
   message_files = [ '50-50', 'default', 'gradual' ]
-  graph_types = [ 'erdos-renyi', 'watts-strogatz', 'barabasi-albert', 'mag' ]
+  graph_types = [ 'erdos-renyi', 'watts-strogatz', 'barabasi-albert' ]
+  media_ecosystem = [ 'two-polarized' ]
+  media_tactics = [ 'predetermined' ]
 
-  for bt in brain_types:
-    if not os.path.isdir(f'{path}/{bt}/results'):
-      os.mkdir(f'{path}/{bt}/results')
-    for ct in contagion_types:
-      for cf in cognitive_fns:
-        for mf in message_files:
-          for gt in graph_types:
-              (multi_data, props, model_params) = process_multi_chart_data(f'{path}/{bt}/{ct}/{mf}/{cf}/{gt}', 'percent-agent-beliefs')
-              plot_multi_chart_data(multi_data, props, f'{path}/{bt}/results',f'{ct}-{mf}-{cf}-{gt}-agg-chart')
+  process_exp_outputs(
+    [media_tactics,media_ecosystem,brain_types,contagion_types,message_files,cognitive_fns,graph_types],
+    {'percent-agent-beliefs': [PLOT_TYPES.LINE, PLOT_TYPES.STACK]},
+    path)
 
 '''
 Process data for the between-graphs experiments: those that run...
@@ -965,16 +1012,22 @@ def process_graph_exp_outputs_w_res(path):
   message_files = [ '50-50', 'default', 'gradual' ]
   graph_types = [ 'erdos-renyi', 'watts-strogatz', 'barabasi-albert', 'mag' ]
 
-  for bt in brain_types:
-    for ct in contagion_types:
-      for cf in cognitive_fns:
-        for mf in message_files:
-          for gt in graph_types:
-            for res in resolutions: 
-              if not os.path.isdir(f'{path}-{res}/{bt}/results'):
-                os.mkdir(f'{path}-{res}/{bt}/results')
-              (multi_data, props, model_params) = process_multi_chart_data(f'{path}-{res}/{bt}/{ct}/{mf}/{cf}/{gt}', 'percent-agent-beliefs')
-              plot_multi_chart_data(multi_data, props, f'{path}-{res}/{bt}/results',f'{ct}-{mf}-{cf}-{gt}-agg-chart')
+  for res in resolutions:
+    process_exp_outputs(
+      [brain_types,contagion_types,message_files,cognitive_fns,graph_types],
+      {'percent-agent-beliefs': [PLOT_TYPES.LINE, PLOT_TYPES.STACK]},
+      f'{path}-{res}')
+
+  # for bt in brain_types:
+  #   for ct in contagion_types:
+  #     for cf in cognitive_fns:
+  #       for mf in message_files:
+  #         for gt in graph_types:
+  #           for res in resolutions: 
+  #             if not os.path.isdir(f'{path}-{res}/{bt}/results'):
+  #               os.mkdir(f'{path}-{res}/{bt}/results')
+  #             (multi_data, props, model_params) = process_multi_chart_data(f'{path}-{res}/{bt}/{ct}/{mf}/{cf}/{gt}', 'percent-agent-beliefs')
+  #             plot_multi_chart_data(multi_data, props, f'{path}-{res}/{bt}/results',f'{ct}-{mf}-{cf}-{gt}-agg-chart')
 
 def simple_contagion_param_test(multi_data):
   '''
