@@ -87,7 +87,7 @@ to setup
   ]
 
   ;; Load message data sets to be used by influencer agents
-  if media-agents? [
+  if media-agents? and institution-tactic = "predetermined" [
     set messages-over-time load-messages-over-time (word messages-data-path "/") (word message-file ".json")
   ]
 
