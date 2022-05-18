@@ -104,7 +104,7 @@ to setup
     layout-circle sort citizens 12
     repeat 2 [ layout-spring citizens social-friends 0.3 10 1 ]
   ]
-  if graph-type = "barabasi-albert" or graph-type = "kronecker" [
+  if graph-type = "barabasi-albert" or graph-type = "kronecker" or graph-type = "ba-homophilic" [
     layout-radial citizens social-friends max_turtle
     layout-spring citizens social-friends 0.3 10 1
   ]
@@ -243,6 +243,9 @@ to connect-agents
   if graph-type = "barabasi-albert" [
     set G ba-graph N ba-m
   ]
+  if graph-type = "ba-homophilic" [
+    set G ba-graph-homophilic N ba-m
+  ]
   if graph-type = "mag" [
     set G mag N (list-as-py-array (sort citizen-malleables) false) mag-style
 ;    show [dict-value brain "A"] of citizens
@@ -288,7 +291,7 @@ to connect-agents
   ]
 
   ; Remove isolates
-  ask citizens with [ empty? sort social-friend-neighbors ] [ die ]
+  ask citizens with [ empty? sort social-friend-neighbors ] [ show "removed isolate" ]
 end
 
 to connect-media
@@ -1097,6 +1100,16 @@ to-report ba-graph [en m]
   report py:runresult((word "BA_graph(" en "," m ")"))
 end
 
+;; Create a Barabasi-Albert graph with the NetworkX package in python
+;; @param en - The number of nodes for the graph (since N is a global variable)
+;; @param m - The number of edges to connect with when a node is added.
+;; @reports A dictionary [ ['nodes' nodes] ['edges' edges] ] where nodes is a list
+;; of single values, and edges is a list of two-element lists (indicating nodes).
+to-report ba-graph-homophilic [en m]
+  let brains map agent-brain-beliefs-as-list (sort citizens)
+  report py:runresult((word "BA_graph_homophilic(" en "," m "," belief-resolution "," (list-as-py-array brains false) ")"))
+end
+
 ;; Run a MAG function in the python script.
 ;; @param en - The number of nodes for the graph (since N is a global variable)
 ;; @param attrs - A list of attributes to construct the graph from - these will designate
@@ -1293,6 +1306,23 @@ to-report agent-brain-malleable-values [ agent ]
   let b [brain] of agent
   let malleables (dict-value b "malleable")
   report filter [ bel -> member? (item 0 bel) malleables ] [brain] of agent
+end
+
+to-report agent-brain-prior-values [ agent ]
+  let b [brain] of agent
+  let priors (dict-value b "prior")
+  report filter [ bel -> member? (item 0 bel) priors ] [brain] of agent
+end
+
+;; Get the beliefs of an agent as a list, not a dictionary including their name
+;; @param agent - The turtle to get beliefs for
+;; @reports A list of lists containing only the integer belief values for each belief in order
+to-report agent-brain-beliefs-as-list [ agent ]
+  let b [brain] of agent
+  let priors (dict-value b "prior")
+  let malleables (dict-value b "malleable")
+  let bels filter [ bel -> member? (item 0 bel) priors or member? (item 0 bel) malleables ] [brain] of agent
+  report map [ bel -> item 1 bel ] bels
 end
 
 ;; Limits a value between a min and a max.
@@ -1679,7 +1709,7 @@ SWITCH
 91
 show-media-connections?
 show-media-connections?
-0
+1
 1
 -1000
 
@@ -2106,8 +2136,8 @@ CHOOSER
 777
 graph-type
 graph-type
-"erdos-renyi" "watts-strogatz" "barabasi-albert" "mag" "facebook" "kronecker"
-2
+"erdos-renyi" "watts-strogatz" "barabasi-albert" "ba-homophilic" "mag" "facebook" "kronecker"
+3
 
 SLIDER
 254
@@ -2744,6 +2774,17 @@ count medias with [dict-value brain \"A\" = 6]
 0
 1
 11
+
+SWITCH
+551
+882
+705
+915
+graph-homophily?
+graph-homophily?
+0
+1
+-1000
 
 @#$#@#$#@
 ## WHAT IS IT?
@@ -3721,6 +3762,95 @@ export-plot "disagreement" (word contagion-dir "/" rand "_disagreement.csv")</fi
     </enumeratedValueSet>
     <enumeratedValueSet variable="ba-m">
       <value value="3"/>
+    </enumeratedValueSet>
+  </experiment>
+  <experiment name="conditions-to-polarization" repetitions="10" sequentialRunOrder="false" runMetricsEveryStep="false">
+    <setup>setup
+set-cognitive-contagion-params
+let run-dir (word sim-output-dir substring date-time-safe 11 (length date-time-safe) "-epsilon-predetermined-" belief-resolution)
+set contagion-dir (word run-dir "/" media-ecosystem "/" media-ecosystem-file "/" brain-type "/" citizen-init-dist "/" spread-type "/" message-file "/" cognitive-fn "/" graph-type)
+py:run (word "create_nested_dirs('" contagion-dir "')")
+;py:run (word "if not os.path.isdir('" run-dir "'): os.mkdir('" run-dir "')")
+;py:run (word "if not os.path.isdir('" run-dir "/" media-ecosystem "/" media-ecosystem-file  "/" brain-type "'): os.mkdir('" run-dir "/" brain-type "')")
+;py:run (word "if not os.path.isdir('" run-dir "/" media-ecosystem "/" media-ecosystem-file  "/" brain-type  "/" spread-type "'): os.mkdir('" run-dir "/" brain-type "/" spread-type "')")
+;py:run (word "if not os.path.isdir('" run-dir "/" brain-type  "/" spread-type "/" message-file "'): os.mkdir('" run-dir "/" brain-type "/" spread-type "/" message-file "')")
+;py:run (word "if not os.path.isdir('" run-dir "/" brain-type  "/" spread-type "/" message-file "/" cognitive-fn "'): os.mkdir('" run-dir "/" brain-type "/" spread-type "/" message-file "/" cognitive-fn "')")
+;py:run (word "if not os.path.isdir('" contagion-dir "'): os.mkdir('" contagion-dir "')")</setup>
+    <go>go</go>
+    <final>let rand random 10000
+export-world (word contagion-dir "/" rand "_world.csv")
+export-plot "percent-agent-beliefs" (word contagion-dir "/" rand "_percent-agent-beliefs.csv")
+export-plot "homophily" (word contagion-dir "/" rand "_homophily.csv")
+export-plot "polarization" (word contagion-dir "/" rand "_polarization.csv")
+export-plot "disagreement" (word contagion-dir "/" rand "_disagreement.csv")</final>
+    <timeLimit steps="250"/>
+    <metric>count citizens</metric>
+    <enumeratedValueSet variable="belief-resolution">
+      <value value="7"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="brain-type">
+      <value value="&quot;discrete&quot;"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="N">
+      <value value="500"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="contagion-on?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="cognitive-fn">
+      <value value="&quot;sigmoid-stubborn&quot;"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="spread-type">
+      <value value="&quot;cognitive&quot;"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="institution-tactic">
+      <value value="&quot;broadcast-brain&quot;"/>
+      <value value="&quot;appeal-mean&quot;"/>
+      <value value="&quot;appeal-median&quot;"/>
+      <value value="&quot;appeal-mode&quot;"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="media-ecosystem">
+      <value value="&quot;distribution&quot;"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="media-ecosystem-dist">
+      <value value="&quot;uniform&quot;"/>
+      <value value="&quot;normal&quot;"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="media-dist-normal-mean">
+      <value value="3"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="media-dist-normal-std">
+      <value value="1"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="media-ecosystem-n">
+      <value value="30"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="message-repeats">
+      <value value="1"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="citizen-init-dist">
+      <value value="&quot;uniform&quot;"/>
+      <value value="&quot;normal&quot;"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="cit-init-normal-mean">
+      <value value="3"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="cit-init-normal-std">
+      <value value="1"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="epsilon">
+      <value value="0"/>
+      <value value="1"/>
+      <value value="2"/>
+      <value value="3"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="graph-type">
+      <value value="&quot;barabasi-albert&quot;"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="ba-m">
+      <value value="3"/>
+      <value value="5"/>
+      <value value="10"/>
     </enumeratedValueSet>
   </experiment>
 </experiments>

@@ -5,10 +5,10 @@ from data import *
 from random import *
 from copy import deepcopy
 import sys
-from enum import Enum
 import os
-from nlogo_graphs import INSTITUTION_ECOSYSTEM_TYPES
-from nlogo_graphs import file_names as eco_file_names
+from enums import INSTITUTION_MESSAGING_TYPES, messaging_file_names
+from enums import INSTITUTION_ECOSYSTEM_TYPES
+from enums import eco_file_names
 
 """
 MESSAGES
@@ -304,17 +304,6 @@ def read_message_over_time_data(path):
 UTILITY FUNCTIONS
 '''
 
-class INSTITUTION_MESSAGING_TYPES(Enum):
-  DEFAULT = 0
-  SPLIT = 1
-  GRADUAL = 2
-
-file_names = {
-  INSTITUTION_MESSAGING_TYPES.DEFAULT: 'default',
-  INSTITUTION_MESSAGING_TYPES.SPLIT: '50-50',
-  INSTITUTION_MESSAGING_TYPES.GRADUAL: 'gradual',
-}
-
 def generate_all_messaging_patterns(start, stop, resolution, bel, out_path):
   for m_type in INSTITUTION_MESSAGING_TYPES:
     for eco_type in INSTITUTION_ECOSYSTEM_TYPES:
@@ -341,7 +330,7 @@ def generate_messaging_patterns(start, stop, m_type, eco_type, resolution, bel, 
   if not os.path.isdir(f'{out_path}/{resolution}/{eco_file_names[eco_type]}'):
     os.mkdir(f'{out_path}/{resolution}/{eco_file_names[eco_type]}')
 
-  f = open(f'{out_path}/{resolution}/{eco_file_names[eco_type]}/{file_names[m_type]}.json', 'w')
+  f = open(f'{out_path}/{resolution}/{eco_file_names[eco_type]}/{messaging_file_names[m_type]}.json', 'w')
   
   pattern_obj = { 'start': start, 'stop': stop }
   if m_type == INSTITUTION_MESSAGING_TYPES.DEFAULT or m_type == INSTITUTION_MESSAGING_TYPES.SPLIT:

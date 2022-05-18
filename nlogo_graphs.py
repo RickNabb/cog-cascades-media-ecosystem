@@ -9,12 +9,14 @@ import networkx as nx
 import numpy as np
 import mag
 from networkx import community
-from messaging import *
+from messaging import dist_to_agent_brain
 from random import random
 from kronecker import kronecker_pow
 from functools import reduce
 import matplotlib.cm as cm
 import matplotlib.pyplot as plt
+from enums import INSTITUTION_ECOSYSTEM_TYPES, eco_file_names
+from data import HomophilicThetaRow, normal_dist_multiple
 
 '''
 Return a NetLogo-safe Erdos-Renyi graph from the NetworkX package.
@@ -76,6 +78,38 @@ Return a Netlogo-safe Barabasi-Albert graph from the NetworkX package.
 '''
 def BA_graph(n, m):
   G = nx.barabasi_albert_graph(n, m)
+  return nlogo_safe_nodes_edges(G)
+
+def BA_graph_homophilic(n, m, resolution, attrs):
+  AMAGHomophilicTheta = lambda resolution: np.matrix([ HomophilicThetaRow(i, resolution, 1, 1, 0) for i in range(0, resolution) ])
+  homophily = AMAGHomophilicTheta(resolution)
+  print(attrs)
+  G = nx.complete_graph(n=m)
+  i = 0
+  # print(f'started with G: {G}')
+  while len(G.nodes) < n:
+    G.add_node(m+i)
+    # print(f'added node{m+i}: {G.nodes}')
+    total_degree = 2 * len(G.edges)
+    # Add m edges
+    edges_added = 0
+    for k in range(m):
+      for node in G.nodes:
+        if node == m+i: continue
+
+        node_degree = G.degree(node)
+        p = node_degree / total_degree
+        for j in range(len(attrs[node])):
+          # print(f'multiplier between {attrs[m+i][j]} and {attrs[node][j]} is {AMAGHomophilicTheta(resolution)[(attrs[m+i][j],attrs[node][j])]}')
+          p *= homophily[(attrs[m+i][j],attrs[node][j])]
+        rand = random()
+        if rand <= p:
+          G.add_edge(m+i, node)
+          edges_added += 1
+    if edges_added == 0:
+      G.remove_node(m+i)
+      i -= 1
+    i += 1
   return nlogo_safe_nodes_edges(G)
 
 '''
@@ -394,7 +428,8 @@ def graph_homophily(G, node_attr):
   attrs = np.array([ G.nodes[node][node_attr] for node in G.nodes ])
   adj = nx.adj_matrix(G)
   for node in G.nodes:
-    total += (adj[node] * abs(attrs - attrs[node]))[0]/adj[node].sum()
+    # np.linalg.norm(m1-m2)
+    total += (adj[node] * abs(attrs - attrs[node])).sum() / adj[node].sum()
   return total/(len(G.nodes))
 
 def nlogo_graph_homophily(citizens, friend_links, node_attr):
@@ -459,25 +494,6 @@ def test_ws_graph_normal(n, k, p):
   for i in range(n):
     G.nodes[i]['A'] = agent_bels[i][0]
   return G
-
-class INSTITUTION_ECOSYSTEM_TYPES(Enum):
-  ONE_MIN = 0
-  ONE_MAX = 1
-  ONE_MID = 2
-  TWO_POLARIZED = 3
-  TWO_MID = 4
-  THREE_POLARIZED = 5
-  THREE_MID = 6
-
-file_names = {
-  INSTITUTION_ECOSYSTEM_TYPES.ONE_MIN: 'one-min',
-  INSTITUTION_ECOSYSTEM_TYPES.ONE_MAX: 'one-max',
-  INSTITUTION_ECOSYSTEM_TYPES.ONE_MID: 'one-mid',
-  INSTITUTION_ECOSYSTEM_TYPES.TWO_POLARIZED: 'two-polarized',
-  INSTITUTION_ECOSYSTEM_TYPES.TWO_MID: 'two-mid',
-  INSTITUTION_ECOSYSTEM_TYPES.THREE_POLARIZED: 'three-polarized',
-  INSTITUTION_ECOSYSTEM_TYPES.THREE_MID: 'three-mid'
-}
 
 # Command to run: generate_media_ecosystems(500, 7, ["A"], [], 'D:/school/grad-school/Tufts/research/cog-contagion-media-ecosystem/ecosystems/')
 
