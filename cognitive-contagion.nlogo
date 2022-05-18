@@ -146,6 +146,7 @@ to create-citizenz
 
   ;; Create them all at once to speed up the process
   create-citizens en [
+    set id read-from-string (substring (word "" self) 9 (position ")" (word "" self)))
     set brain create-agent-brain id citizen-priors citizen-malleables (item id prior-vals) (item id malleable-vals)
     set messages-heard []
     set messages-believed []
@@ -1180,12 +1181,22 @@ end
 
 ;; Report the amount of homophily in the graph by measuring the average neighbor
 ;; distance across the graph.
-;; @param attr - The attribute to measure homophily for.
-to-report graph-homophily [ attr ]
+to-report graph-homophily
   let citizen-arr list-as-py-array (map [ cit -> agent-brain-as-py-dict [brain] of citizen cit ] (range N)) false
   let edge-arr list-as-py-array (sort social-friends) true
   report py:runresult(
-    (word "nlogo_graph_homophily(" citizen-arr "," edge-arr ",'" attr "')")
+    (word "graph_homophily(nlogo_graph_to_nx(" citizen-arr "," edge-arr "))")
+  )
+end
+
+;; Report the amount of homophily for a single citizen by measuring the average neighbor
+;; distance for it.
+;; @param cit -- The citizen id to get homophily for.
+to-report citizen-homophily [ cit-id ]
+  let citizen-arr list-as-py-array (map [ c -> agent-brain-as-py-dict [brain] of citizen c ] (range N)) false
+  let edge-arr list-as-py-array (sort social-friends) true
+  report py:runresult(
+    (word "node_homophily(nlogo_graph_to_nx(" citizen-arr "," edge-arr ")," cit-id ")")
   )
 end
 
@@ -2137,7 +2148,7 @@ CHOOSER
 graph-type
 graph-type
 "erdos-renyi" "watts-strogatz" "barabasi-albert" "ba-homophilic" "mag" "facebook" "kronecker"
-3
+2
 
 SLIDER
 254
@@ -2408,7 +2419,7 @@ true
 false
 "" ""
 PENS
-"0" 1.0 0 -16777216 true "" "plot 1 / (1 + graph-homophily \"A\")"
+"0" 1.0 0 -16777216 true "" "plot 1 / (1 + (item 0 graph-homophily))"
 
 PLOT
 733

@@ -414,27 +414,35 @@ def plot_graph_communities(G, level):
   nx.draw_networkx_edges(G, pos, alpha=0.5)
   plt.show()
 
-def graph_homophily(G, node_attr):
+def node_homophily(G, node):
+  '''
+  Get the homophily value for a single node in G.
+
+  :param G: The graph.
+  :param node: The integer node index to get.
+  '''
+  attrs = np.array([ list(G.nodes[node].values()) for node in G.nodes ])
+  norm_vector = np.array([ np.linalg.norm(attr - attrs[node]) for attr in attrs ])
+  adj = nx.adj_matrix(G)
+  # Note: adj[node] * norm_vector sums the values already
+  return (adj[node] * norm_vector) / adj[node].sum()
+
+def graph_homophily(G):
   '''
   Takes a measure of homophily in the graph based on first-level neighbor
   distance on a given node attribute. Details can be found in Rabb et al. 2022
   Eq (9).
 
   :param G: The networkx graph to take the measure on.
-  :param node_attr: The node attribute (string) to take homophily values for. This
-  attribute must be a number.
   '''
-  total = 0
-  attrs = np.array([ G.nodes[node][node_attr] for node in G.nodes ])
+  distances = []
+  attrs = np.array([ list(G.nodes[node].values()) for node in G.nodes ])
   adj = nx.adj_matrix(G)
   for node in G.nodes:
-    # np.linalg.norm(m1-m2)
-    total += (adj[node] * abs(attrs - attrs[node])).sum() / adj[node].sum()
-  return total/(len(G.nodes))
-
-def nlogo_graph_homophily(citizens, friend_links, node_attr):
-  G = nlogo_graph_to_nx(citizens, friend_links)
-  return graph_homophily(G, node_attr)
+    norm_vector = np.array([ np.linalg.norm(attr - attrs[node]) for attr in attrs ])
+    # Note: adj[node] * norm_vector sums the values already
+    distances.append((adj[node] * norm_vector)[0] / adj[node].sum())
+  return (np.array(distances).mean(), np.array(distances).var())
 
 def graph_polarization(G, node_attr, max_attr_value):
   '''
@@ -490,9 +498,10 @@ def graph_democracy(G):
 
 def test_ws_graph_normal(n, k, p):
   G = nx.watts_strogatz_graph(n, k, p)
-  agent_bels = normal_dist_multiple(7, 3, 1, n, 1)
+  agent_bels = normal_dist_multiple(7, 3, 1, n, 2)
   for i in range(n):
     G.nodes[i]['A'] = agent_bels[i][0]
+    G.nodes[i]['B'] = agent_bels[i][1]
   return G
 
 # Command to run: generate_media_ecosystems(500, 7, ["A"], [], 'D:/school/grad-school/Tufts/research/cog-contagion-media-ecosystem/ecosystems/')
