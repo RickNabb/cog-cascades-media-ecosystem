@@ -83,7 +83,6 @@ def BA_graph(n, m):
 def BA_graph_homophilic(n, m, resolution, attrs):
   AMAGHomophilicTheta = lambda resolution: np.matrix([ HomophilicThetaRow(i, resolution, 1, 1, 0) for i in range(0, resolution) ])
   homophily = AMAGHomophilicTheta(resolution)
-  print(attrs)
   G = nx.complete_graph(n=m)
   i = 0
   # print(f'started with G: {G}')

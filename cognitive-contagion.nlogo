@@ -1283,9 +1283,38 @@ to-report agents-power [ attr ]
   ]
 end
 
+;; Report the chi-squared test values between two distributions.
+;; @param dist1 - The first distribution.
+;; @param dist2 - The second distribution.
+to-report chi-sq [ dist1 dist2 ]
+  let dist []
+  let i 0
+  repeat length dist1 [
+    let entry (list (item i dist1) (item i dist2))
+    set dist lput (list-as-py-array entry false) dist
+    set i i + 1
+  ]
+  report py:runresult((word "chi2_contingency(" (list-as-py-array dist false) ")"))
+end
+
 ;;;;;;;;;;;;;;;
 ; HELPER PROCS
 ;;;;;;;;;;;;;;;
+
+;; Report the distribution (count) of beliefs for attribute attr over a given agent set.
+;; @param agentset - The agentset to count over.
+;; @param attr - The string attribute to search for in agent brains.
+to-report agent-brain-distribution [ agentset attr ]
+  let brain-attrs [ dict-value brain attr ] of agentset
+  let i 0
+  let dist []
+  repeat belief-resolution [
+    let num-attr length filter [ el -> el = i ] brain-attrs
+    set dist lput num-attr dist
+    set i i + 1
+  ]
+  report dist
+end
 
 to-report is-agent-brain-empty? [ agent ]
   report empty? agent-brain-malleable-values agent
@@ -1707,7 +1736,7 @@ epsilon
 epsilon
 0
 belief-resolution
-1.0
+2.0
 1
 1
 NIL
@@ -2634,7 +2663,7 @@ CHOOSER
 media-ecosystem-dist
 media-ecosystem-dist
 "uniform" "normal" "polarized"
-2
+0
 
 SLIDER
 26
@@ -2675,7 +2704,7 @@ media-ecosystem-n
 media-ecosystem-n
 0
 100
-15.0
+30.0
 1
 1
 NIL
@@ -2796,6 +2825,24 @@ graph-homophily?
 0
 1
 -1000
+
+PLOT
+1534
+537
+1907
+779
+chi-sq-citizens-media
+time
+p-value
+0.0
+10.0
+0.0
+1.0
+true
+false
+"" ""
+PENS
+"default" 1.0 0 -16777216 true "" "let cit-dist agent-brain-distribution citizens \"A\"\nlet media-dist agent-brain-distribution medias \"A\"\nlet chisq chi-sq cit-dist media-dist\nplot (item 1 chisq)"
 
 @#$#@#$#@
 ## WHAT IS IT?
@@ -3775,9 +3822,8 @@ export-plot "disagreement" (word contagion-dir "/" rand "_disagreement.csv")</fi
       <value value="3"/>
     </enumeratedValueSet>
   </experiment>
-  <experiment name="conditions-to-polarization" repetitions="10" sequentialRunOrder="false" runMetricsEveryStep="false">
+  <experiment name="conditions-to-polarization_cognitive" repetitions="10" sequentialRunOrder="false" runMetricsEveryStep="false">
     <setup>setup
-set-cognitive-contagion-params
 let run-dir (word sim-output-dir substring date-time-safe 11 (length date-time-safe) "-epsilon-predetermined-" belief-resolution)
 set contagion-dir (word run-dir "/" media-ecosystem "/" media-ecosystem-file "/" brain-type "/" citizen-init-dist "/" spread-type "/" message-file "/" cognitive-fn "/" graph-type)
 py:run (word "create_nested_dirs('" contagion-dir "')")
@@ -3813,6 +3859,17 @@ export-plot "disagreement" (word contagion-dir "/" rand "_disagreement.csv")</fi
     </enumeratedValueSet>
     <enumeratedValueSet variable="spread-type">
       <value value="&quot;cognitive&quot;"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="cognitive-scalar">
+      <value value="20"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="cognitive-exponent">
+      <value value="4"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="cognitive-translate">
+      <value value="0"/>
+      <value value="1"/>
+      <value value="2"/>
     </enumeratedValueSet>
     <enumeratedValueSet variable="institution-tactic">
       <value value="&quot;broadcast-brain&quot;"/>
@@ -3857,6 +3914,7 @@ export-plot "disagreement" (word contagion-dir "/" rand "_disagreement.csv")</fi
     </enumeratedValueSet>
     <enumeratedValueSet variable="graph-type">
       <value value="&quot;barabasi-albert&quot;"/>
+      <value value="&quot;ba-homophilic&quot;"/>
     </enumeratedValueSet>
     <enumeratedValueSet variable="ba-m">
       <value value="3"/>
