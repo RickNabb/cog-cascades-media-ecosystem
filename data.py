@@ -276,25 +276,28 @@ def read_graph(path):
     media_arr = []
     media_sub_arr = []
     lines = raw.split('\n')
+    i = 0
 
-    for i in range(0, len(lines)):
-        line = lines[i]
-        if 'CITIZENS' in line:
-            n = int(line.split(' ')[1])
-            read_subrange(lines[i+1:i+1+n], cit)
-            i += n
-        elif 'CITIZEN_SOCIAL_LINKS' in line:
-            n = int(line.split(' ')[1])
-            read_subrange(lines[i+1:i+1+n], cit_social)
-            i += n
-        elif 'MEDIA' in line:
-            n = int(line.split(' ')[1])
-            read_subrange(lines[i+1:i+1+n], media_arr)
-            i += n
-        elif 'MEDIA_SUB_LINKS' in line:
-            n = int(line.split(' ')[1])
-            read_subrange(lines[i+1:i+1+n], media_sub_arr)
-            i += n
+    while i < len(lines):
+      line = lines[i]
+      if 'CITIZEN_SOCIAL_LINKS' in line:
+        n = int(line.split(' ')[1])
+        read_subrange(lines[i+1:i+1+n], cit_social)
+        i += n+1
+      elif 'CITIZEN' in line:
+        n = int(line.split(' ')[1])
+        read_subrange(lines[i+1:i+1+n], cit)
+        i += n+1
+      elif 'MEDIA_SUB_LINKS' in line:
+        n = int(line.split(' ')[1])
+        read_subrange(lines[i+1:i+1+n], media_sub_arr)
+        i += n+1
+      elif 'MEDIA' in line:
+        n = int(line.split(' ')[1])
+        read_subrange(lines[i+1:i+1+n], media_arr)
+        i += n+1
+      else:
+        i += 1
     return (cit, cit_social, media_arr, media_sub_arr)
 
 
@@ -319,7 +322,6 @@ def process_chart_data(path):
   raw = f.read()
   f.close()
   chunks = raw.split('\n\n')
-  print(path)
 
   model_lines = chunks[1].replace('"','').split('\n')
   model_keys = model_lines[1].split(',')
@@ -381,6 +383,7 @@ in the process. This should usually be the name of the chart in the NetLogo file
 def process_multi_chart_data(in_path, in_filename='percent-agent-beliefs'):
   props = None
   multi_data = []
+  print(f'process_multi_chart_data for {in_path}/{in_filename}')
   for file in os.listdir(in_path):
     if in_filename in file:
       data = process_chart_data(f'{in_path}/{file}')
@@ -501,7 +504,7 @@ def plot_nlogo_multi_chart_line(props, multi_data):
     # This is specific code to set the colors for belief resolutions
     multi_data_keys_int = list(map(lambda el: int(el), multi_data.keys()))
     resolution = int(max(multi_data_keys_int))+1
-    line_color = lambda key: f"#{rgb_to_hex([ 255 - round((255/(resolution-1))*int(key)), 0, round((255/(resolution-1)) * int(key)) ])}"
+    line_color = lambda key: f"#{rgb_to_hex([ 255 - round((255/max(resolution-1,1))*int(key)), 0, round((255/max(resolution-1,1)) * int(key)) ])}"
  
   for key in multi_data:
     mean_vec = multi_data[key].mean(0)
@@ -951,6 +954,27 @@ def process_predetermined_ecosystems_outputs(path):
     'disagreement': [PLOT_TYPES.LINE],
     'homophily': [PLOT_TYPES.LINE]},
     path)
+
+def process_conditions_to_polarization_cognitive(path):
+  cognitive_translate = ['0', '1', '2']
+  epsilon = ['0', '1', '2']
+  # institution_tactic = ['broadcast-brain', 'appeal-mean', 'appeal-median', 'appeal-mode']
+  institution_tactic = ['broadcast-brain', 'appeal-mean']
+  media_ecosystem_dist = [ 'uniform', 'normal', 'polarized' ]
+  # ba_m = ['3', '5', '10']
+  ba_m = ['3' ]
+  graph_types = [ 'ba-homophilic', 'barabasi-albert' ]
+  init_cit_dist = ['normal', 'uniform']
+
+  process_exp_outputs(
+    [cognitive_translate,institution_tactic,media_ecosystem_dist,init_cit_dist,epsilon,graph_types,ba_m],
+    {'percent-agent-beliefs': [PLOT_TYPES.LINE, PLOT_TYPES.STACK],
+    'polarization': [PLOT_TYPES.LINE],
+    'disagreement': [PLOT_TYPES.LINE],
+    'homophily': [PLOT_TYPES.LINE],
+    'chi-sq-cit-media': [PLOT_TYPES.LINE]},
+    path)
+
 
 '''
 Process charts for the simple-complex comparison: the experiment where one
