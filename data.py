@@ -11,6 +11,7 @@ import pandas as pd
 import os
 import numpy as np
 from scipy.stats import chi2_contingency, truncnorm
+from sklearn.linear_model import LinearRegression
 import math
 
 """
@@ -381,14 +382,14 @@ Matplotlib plot.
 in the process. This should usually be the name of the chart in the NetLogo file.
 '''
 def process_multi_chart_data(in_path, in_filename='percent-agent-beliefs'):
-  props = None
+  props = []
   multi_data = []
   print(f'process_multi_chart_data for {in_path}/{in_filename}')
   for file in os.listdir(in_path):
     if in_filename in file:
       data = process_chart_data(f'{in_path}/{file}')
       model_params = data[0]
-      props = data[1]
+      props.append(data[1])
       multi_data.append(data[2])
 
   means = { key: [] for key in multi_data[0].keys() }
@@ -400,7 +401,10 @@ def process_multi_chart_data(in_path, in_filename='percent-agent-beliefs'):
       else:
         means[key] = np.vstack([means[key], data_vector])
 
-  return (means, props, model_params)
+  final_props = props[0]
+  props_y_max = np.array([ float(prop['y max']) for prop in props ])
+  final_props['y max'] = props_y_max.max()
+  return (means, final_props, model_params)
 
 '''
 Given some multi-chart data, plot it and save the plot.
@@ -421,6 +425,12 @@ def plot_multi_chart_data(types, multi_data, props, out_path, out_filename='aggr
   if PLOT_TYPES.STACK in types:
     plot = plot_nlogo_multi_chart_stacked(props, multi_data)
     plt.savefig(f'{out_path}/{out_filename}_stacked.png')
+    if show_plot: plt.show()
+    plt.close()
+
+  if PLOT_TYPES.HISTOGRAM in types:
+    plot = plot_nlogo_multi_chart_histogram(props, multi_data)
+    plt.savefig(f'{out_path}/{out_filename}_histogram.png')
     if show_plot: plt.show()
     plt.close()
 
@@ -488,13 +498,15 @@ def plot_nlogo_multi_chart_line(props, multi_data):
   # print(multi_data)
   fig, (ax) = plt.subplots(1, figsize=(8,6))
   # ax, ax2 = fig.add_subplot(2)
-  ax.set_ylim([0, 1.1])
   y_min = int(round(float(props['y min'])))
   y_max = int(round(float(props['y max'])))
   x_min = int(round(float(props['x min'])))
   x_max = int(round(float(props['x max'])))
-  plt.yticks(np.arange(y_min, y_max+0.2, step=0.2))
-  plt.xticks(np.arange(x_min, x_max+10, step=10))
+  # ax.set_ylim([0, y_max])
+  ax.set_ylim([0, 15])
+  plt.yticks(np.arange(y_min, y_max, step=1))
+  # plt.yticks(np.arange(y_min, y_max*1.1, step=y_max/10))
+  plt.xticks(np.arange(x_min, x_max*1.1, step=5))
   ax.set_ylabel("% of agents who believe b")
   ax.set_xlabel("Time Step")
 
@@ -512,6 +524,47 @@ def plot_nlogo_multi_chart_line(props, multi_data):
     # print(var_vec)
     ax.plot(mean_vec, c=line_color(key))
     ax.fill_between(range(x_min, len(mean_vec)), mean_vec-var_vec, mean_vec+var_vec, facecolor=f'{line_color(key)}44')
+  
+  return multi_data
+
+'''
+Plot multiple NetLogo chart data sets on a single plot. This will scatterplot
+each data set and then draw a line of the means at each point through the
+entire figure.
+
+:param props: The properties dictionary read in from reading the chart file. This
+describes pen colors, x and y min and max, etc.
+:param multi_data: A list of dataframes that contain chart data.
+'''
+def plot_nlogo_histogram(props, multi_data):
+  # series = pd.Series(data)
+  # print(multi_data)
+  fig, (ax) = plt.subplots(1, figsize=(8,6))
+  # ax, ax2 = fig.add_subplot(2)
+  ax.set_ylim([0, 1.1])
+  y_min = int(round(float(props['y min'])))
+  y_max = int(round(float(props['y max'])))
+  x_min = int(round(float(props['x min'])))
+  x_max = int(round(float(props['x max'])))
+  plt.yticks(np.arange(y_min, y_max+0.2, step=0.2))
+  plt.xticks(np.arange(x_min, x_max+10, step=10))
+  ax.set_ylabel("# of agents who believe b")
+  ax.set_xlabel("Time Step")
+
+  line_color = lambda key: '#000000'
+
+  if list(multi_data.keys())[0] != 'default':
+    # This is specific code to set the colors for belief resolutions
+    multi_data_keys_int = list(map(lambda el: int(el), multi_data.keys()))
+    resolution = int(max(multi_data_keys_int))+1
+    bar_color = lambda key: f"#{rgb_to_hex([ 255 - round((255/max(resolution-1,1))*int(key)), 0, round((255/max(resolution-1,1)) * int(key)) ])}"
+ 
+  for key in multi_data:
+    mean_vec = multi_data[key].mean(0)
+    var_vec = multi_data[key].var(0)
+    # print(var_vec)
+    ax.plot(mean_vec, c=bar_color(key))
+    ax.fill_between(range(x_min, len(mean_vec)), mean_vec-var_vec, mean_vec+var_vec, facecolor=f'{bar_color(key)}44')
   
   return multi_data
       
@@ -910,6 +963,7 @@ ANALYSIS
 class PLOT_TYPES(Enum):
   LINE = 0
   STACK = 1
+  HISTOGRAM = 2
 
 def process_exp_outputs(param_combos, plots, path):
   '''
@@ -937,6 +991,22 @@ def process_exp_outputs(param_combos, plots, path):
       (multi_data, props, model_params) = process_multi_chart_data(f'{path}/{"/".join(combo)}', plot_name)
       plot_multi_chart_data(plot_types, multi_data, props, f'{path}/results', f'{"-".join(combo)}_{plot_name}-agg-chart')
 
+def get_all_multidata(param_combos, plots, path):
+  combos = []
+  for combo in itertools.product(*param_combos):
+    combos.append(combo)
+
+  if not os.path.isdir(f'{path}/results'):
+    os.mkdir(f'{path}/results')
+
+  multi_datas = {}
+  for combo in combos:
+    for (plot_name, plot_types) in plots.items():
+      # print(plot_name, plot_types)
+      (multi_data, props, model_params) = process_multi_chart_data(f'{path}/{"/".join(combo)}', plot_name)
+      multi_datas[(combo,plot_name)] = multi_data
+  return multi_datas
+
 def process_predetermined_ecosystems_outputs(path):
   brain_types = ['discrete']
   contagion_types = [ 'simple', 'complex', 'cognitive' ]
@@ -956,18 +1026,44 @@ def process_predetermined_ecosystems_outputs(path):
     path)
 
 def process_conditions_to_polarization_cognitive(path):
+  cognitive_translate = ['0']
+  # cognitive_translate = ['0', '1', '2']
+  epsilon = ['0', '1', '2']
+  institution_tactic = ['broadcast-brain']
+  media_ecosystem_dist = ['polarized' ]
+  # institution_tactic = ['broadcast-brain', 'appeal-mean', 'appeal-median', 'appeal-mode']
+  # media_ecosystem_dist = [ 'uniform', 'normal', 'polarized' ]
+  # ba_m = ['3', '5', '10']
+  ba_m = ['3' ]
+  graph_types = [ 'ba-homophilic', 'barabasi-albert' ]
+  graph_types = [ 'ba-homophilic']
+  init_cit_dist = ['normal']
+  # init_cit_dist = ['normal', 'uniform', 'polarized']
+  repetition = list(map(str, range(2)))
+
+  process_exp_outputs(
+    [cognitive_translate,institution_tactic,media_ecosystem_dist,init_cit_dist,epsilon,graph_types,ba_m,repetition],
+    { 'polarization': [PLOT_TYPES.LINE] },
+    # {'percent-agent-beliefs': [PLOT_TYPES.LINE, PLOT_TYPES.STACK],
+    # 'polarization': [PLOT_TYPES.LINE],
+    # 'disagreement': [PLOT_TYPES.LINE],
+    # 'homophily': [PLOT_TYPES.LINE],
+    # 'chi-sq-cit-media': [PLOT_TYPES.LINE]},
+    path)
+
+def get_conditions_to_polarization_multidata(path):
   cognitive_translate = ['0', '1', '2']
   epsilon = ['0', '1', '2']
-  # institution_tactic = ['broadcast-brain', 'appeal-mean', 'appeal-median', 'appeal-mode']
-  institution_tactic = ['broadcast-brain', 'appeal-mean']
+  institution_tactic = ['broadcast-brain', 'appeal-mean', 'appeal-median', 'appeal-mode']
   media_ecosystem_dist = [ 'uniform', 'normal', 'polarized' ]
   # ba_m = ['3', '5', '10']
   ba_m = ['3' ]
   graph_types = [ 'ba-homophilic', 'barabasi-albert' ]
-  init_cit_dist = ['normal', 'uniform']
+  init_cit_dist = ['normal', 'uniform', 'polarized']
+  repetition = list(map(str, range(2)))
 
-  process_exp_outputs(
-    [cognitive_translate,institution_tactic,media_ecosystem_dist,init_cit_dist,epsilon,graph_types,ba_m],
+  return get_all_multidata(
+    [cognitive_translate,institution_tactic,media_ecosystem_dist,init_cit_dist,epsilon,graph_types,ba_m,repetition],
     {'percent-agent-beliefs': [PLOT_TYPES.LINE, PLOT_TYPES.STACK],
     'polarization': [PLOT_TYPES.LINE],
     'disagreement': [PLOT_TYPES.LINE],
@@ -975,6 +1071,194 @@ def process_conditions_to_polarization_cognitive(path):
     'chi-sq-cit-media': [PLOT_TYPES.LINE]},
     path)
 
+def polarization_stability_analysis(multidata):
+  '''
+  Analyze each individual run of the polarization experiment
+  to see if its individual runs polarization result match
+  that of the mean of the results.
+
+  :param multidata: Multidata gathered from the experiment.
+  '''
+  threshold = 0.01
+  stability_df = pd.DataFrame(columns=['translate','tactic','media_dist','citizen_dist','epsilon','graph_type','ba-m','repetition','polarized?','polarizing','nonpolarizing','ratio_match'])
+
+  polarization_data = { key: value for (key,value) in multidata.items() if key[1] == 'polarization' }
+  polarization_means = { key: value['0'].mean(0) for (key,value) in polarization_data.items() }
+  x = np.array([[val] for val in range(len(list(polarization_means.values())[0]))])
+
+  for (param_combo, data) in polarization_data.items():
+    polarizing = []
+    nonpolarizing = []
+    for run_data in data['0']:
+      model = LinearRegression().fit(x, run_data)
+      if model.coef_[0] >= threshold:
+        polarizing.append(run_data)
+      elif model.coef_[0] <= threshold * -1:
+        nonpolarizing.append(run_data)
+      elif model.intercept_ >= 8.5:
+        polarizing.append(run_data)
+      else:
+        nonpolarizing.append(run_data)
+    polarizing_ratio = len(polarizing) / len(data['0'])
+    nonpolarizing_ratio = len(nonpolarizing) / len(data['0'])
+
+    model = LinearRegression().fit(x, polarization_means[param_combo])
+    polarized = model.coef_[0] >= threshold or (model.coef_[0] < threshold and model.coef_[0] > (threshold * -1) and model.intercept_ >= 8.5)
+    match = polarizing_ratio if polarized else nonpolarizing_ratio
+
+    stability_df.loc[len(stability_df.index)] = list(param_combo[0]) + [polarized, polarizing_ratio, nonpolarizing_ratio,match]
+  
+  diffs = [0.2, 0.4, 0.6, 0.8, 1]
+  diff_parts = { diff: stability_df[round(abs(stability_df['polarizing']-stability_df['nonpolarizing']),1) == diff] for diff in diffs }
+  diff_parts_span = { diff: { col: df[col].unique() for col in df.columns } for (diff, df) in diff_parts.items() }
+  
+  return { 'stability': stability_df, 'diff_parts': diff_parts, 'diff_span': diff_parts_span }
+
+def polarization_analysis(multidata):
+  '''
+  Analyze polarization data for any of the experiments' multidata
+  collection. This returns a data frame with conditions parameters
+  and measures on the polarization data like linear regression slope,
+  intercept, min, max, final value of the mean values, variance, etc.
+
+  This reports data broken up by a polarization regression slope threshold
+  and thus partitions the results into polarizing, depolarizing, and
+  remaining the same.
+
+  :param multidata: A collection of multidata for a given experiment.
+  '''
+  slope_threshold = 0.01
+  intercept_threshold = 8.5
+
+  polarization_data = { key: value for (key,value) in multidata.items() if key[1] == 'polarization' }
+  polarization_means = { key: value['0'].mean(0) for (key,value) in polarization_data.items() }
+  polarization_vars = { key: value['0'].var(0).mean() for (key,value) in polarization_data.items() }
+  x = np.array([[val] for val in range(len(list(polarization_means.values())[0]))])
+  df = pd.DataFrame(columns=['translate','tactic','media_dist','citizen_dist','epsilon','graph_type','ba-m','repetition','lr-intercept','lr-slope','var','start','end','delta','max'])
+
+  for (props, data) in polarization_means.items():
+    model = LinearRegression().fit(x, data)
+    df.loc[len(df.index)] = list(props[0]) + [model.intercept_,model.coef_[0],polarization_vars[props],data[0],data[-1],data[-1]-data[0],max(data)]
+  
+  polarizing = df[df['lr-slope'] >= slope_threshold]
+  depolarizing = df[df['lr-slope'] <= slope_threshold*-1]
+  same = df[(df['lr-slope'] > slope_threshold*-1) & (df['lr-slope'] < slope_threshold)]
+  polarizing = polarizing.append(same[same['lr-intercept'] >= intercept_threshold])
+  depolarizing = depolarizing.append(same[same['lr-intercept'] < intercept_threshold])
+
+  return { 'polarizing': polarizing, 'nonpolarizing': depolarizing, 'same': same}
+
+def polarizing_results_analysis(df):
+  '''
+  One specific analysis that supports Table 3 in the Rabb & Cowen
+  paper on a static ecosystem cascade model. It returns the proportion
+  of results within result partitions by institution tactic, when
+  parameters epsilon, gamma, and h_G are set certain ways.
+  '''
+  tactics = ['broadcast-brain', 'appeal-mean', 'appeal-median', 'appeal-mode']
+  for tactic in tactics:
+    total = len(df[df['tactic'] == tactic])
+    print(f'{tactic} ({total})')
+    print(len(df.query(f'tactic == "{tactic}" and epsilon=="0"')) / total)
+    print(len(df.query(f'tactic == "{tactic}" and epsilon=="1"')) / total)
+    print(len(df.query(f'tactic == "{tactic}" and epsilon=="2"')) / total)
+    print(len(df.query(f' tactic == "{tactic}" and translate=="0"')) / total)
+    print(len(df.query(f'tactic == "{tactic}" and translate=="1"')) / total)
+    print(len(df.query(f'tactic == "{tactic}" and translate=="2"')) / total)
+    print(len(df.query(f'tactic == "{tactic}" and graph_type=="ba-homophilic"')) / total)
+    print(len(df.query(f'tactic == "{tactic}" and graph_type=="barabasi-albert"')) / total)
+
+def polarizing_results_analysis_by_param(df, params):
+  '''
+  Query polarization results by all parameter combinations
+  and return results.
+
+  :param df: The experiment results data frame for polarization
+  results.
+  :param params: A dictionary of parameters to use for
+  segmentation during results analysis (currently hardcoded below).
+  '''
+  params = {
+    'translate' : ['0', '1', '2'],
+    'epsilon' : ['0', '1', '2'],
+    'tactic' : ['broadcast-brain', 'appeal-mean', 'appeal-median', 'appeal-mode'],
+    'media_dist' : [ 'uniform', 'normal', 'polarized' ],
+    'graph_type' : [ 'ba-homophilic', 'barabasi-albert' ],
+    'citizen_dist' : ['normal', 'uniform', 'polarized'],
+  }
+
+  num_params = 6
+  all_params = []
+  for param in params.keys():
+    param_list = params[param]
+    for val in param_list:
+      all_params.append((param, val))
+
+  combos = {}
+  for combo_len in range(1, num_params):
+    for combo in itertools.combinations(all_params, combo_len):
+      unique_keys = set([pair[0] for pair in combo])
+      flat_combo = ({key: [pair[1] for pair in combo if pair[0] == key] for key in unique_keys})
+      combos[len(combos)] = flat_combo
+    # for combo in itertools.product(*param_combos, combo_len):
+    #   combos.append(combo)
+  
+  ratios = {}
+  param_dfs = {}
+  for combo_i in combos.keys():
+    combo = combos[combo_i]
+    query = '('
+    for param in combo.keys():
+      query += f'('
+      for val in combo[param]:
+        query += f'{param}=="{val}" or '
+      query = query[:-4] + ') and '
+    query = query[:-5] + ')'
+    param_dfs[combo_i] = df.query(query)
+    ratios[combo_i] = len(param_dfs[combo_i]) / len(df)
+  
+  return (combos, param_dfs, ratios)
+
+  # return combos
+
+
+def process_polarizing_conditions_cognitive(path):
+  cognitive_translate = ['0']
+  epsilon = ['0', '1', '2', '3']
+  institution_tactic = ['broadcast-brain']
+  media_ecosystem_dist = [ 'uniform', 'polarized' ]
+  ba_m = ['3' ]
+  graph_types = [ 'ba-homophilic']
+  init_cit_dist = ['normal', 'uniform']
+  repetition = list(map(str, range(4)))
+
+  process_exp_outputs(
+    [cognitive_translate,institution_tactic,media_ecosystem_dist,init_cit_dist,epsilon,graph_types,ba_m,repetition],
+    {'percent-agent-beliefs': [PLOT_TYPES.LINE, PLOT_TYPES.STACK],
+    'polarization': [PLOT_TYPES.LINE],
+    'disagreement': [PLOT_TYPES.LINE],
+    'homophily': [PLOT_TYPES.LINE],
+    'chi-sq-cit-media': [PLOT_TYPES.LINE]},
+    path)
+
+def process_nonpolarizing_conditions_cognitive(path):
+  cognitive_translate = ['0']
+  epsilon = ['0', '1']
+  institution_tactic = ['broadcast-brain', 'appeal-mean', 'appeal-median']
+  media_ecosystem_dist = [ 'normal', 'polarized' ]
+  ba_m = ['3' ]
+  graph_types = [ 'ba-homophilic']
+  init_cit_dist = ['normal', 'uniform']
+  repetition = list(map(str, range(4)))
+
+  process_exp_outputs(
+    [cognitive_translate,institution_tactic,media_ecosystem_dist,init_cit_dist,epsilon,graph_types,ba_m,repetition],
+    {'percent-agent-beliefs': [PLOT_TYPES.LINE, PLOT_TYPES.STACK],
+    'polarization': [PLOT_TYPES.LINE],
+    'disagreement': [PLOT_TYPES.LINE],
+    'homophily': [PLOT_TYPES.LINE],
+    'chi-sq-cit-media': [PLOT_TYPES.LINE]},
+    path)
 
 '''
 Process charts for the simple-complex comparison: the experiment where one
