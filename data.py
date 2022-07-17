@@ -13,6 +13,8 @@ import numpy as np
 from scipy.stats import chi2_contingency, truncnorm
 from sklearn.linear_model import LinearRegression
 import math
+import matplotlib.pyplot as plt
+import statsmodels.formula.api as smf
 
 """
 BELIEF ATTRIBUTES
@@ -502,8 +504,7 @@ def plot_nlogo_multi_chart_line(props, multi_data):
   y_max = int(round(float(props['y max'])))
   x_min = int(round(float(props['x min'])))
   x_max = int(round(float(props['x max'])))
-  # ax.set_ylim([0, y_max])
-  ax.set_ylim([0, 15])
+  ax.set_ylim([0, y_max])
   plt.yticks(np.arange(y_min, y_max, step=1))
   # plt.yticks(np.arange(y_min, y_max*1.1, step=y_max/10))
   plt.xticks(np.arange(x_min, x_max*1.1, step=5))
@@ -1026,35 +1027,30 @@ def process_predetermined_ecosystems_outputs(path):
     path)
 
 def process_conditions_to_polarization_cognitive(path):
-  cognitive_translate = ['0']
-  # cognitive_translate = ['0', '1', '2']
+  cognitive_translate = ['0', '1', '2']
   epsilon = ['0', '1', '2']
-  institution_tactic = ['broadcast-brain']
-  media_ecosystem_dist = ['polarized' ]
-  # institution_tactic = ['broadcast-brain', 'appeal-mean', 'appeal-median', 'appeal-mode']
-  # media_ecosystem_dist = [ 'uniform', 'normal', 'polarized' ]
-  # ba_m = ['3', '5', '10']
+  institution_tactic = ['broadcast-brain', 'appeal-mean', 'appeal-median', 'appeal-mode']
+  media_ecosystem_dist = [ 'uniform', 'normal', 'polarized' ]
   ba_m = ['3' ]
   graph_types = [ 'ba-homophilic', 'barabasi-albert' ]
   graph_types = [ 'ba-homophilic']
-  init_cit_dist = ['normal']
-  # init_cit_dist = ['normal', 'uniform', 'polarized']
+  init_cit_dist = ['normal', 'uniform', 'polarized']
   repetition = list(map(str, range(2)))
 
   process_exp_outputs(
     [cognitive_translate,institution_tactic,media_ecosystem_dist,init_cit_dist,epsilon,graph_types,ba_m,repetition],
     { 'polarization': [PLOT_TYPES.LINE] },
-    # {'percent-agent-beliefs': [PLOT_TYPES.LINE, PLOT_TYPES.STACK],
-    # 'polarization': [PLOT_TYPES.LINE],
-    # 'disagreement': [PLOT_TYPES.LINE],
-    # 'homophily': [PLOT_TYPES.LINE],
-    # 'chi-sq-cit-media': [PLOT_TYPES.LINE]},
+    {'percent-agent-beliefs': [PLOT_TYPES.LINE, PLOT_TYPES.STACK],
+    'polarization': [PLOT_TYPES.LINE],
+    'disagreement': [PLOT_TYPES.LINE],
+    'homophily': [PLOT_TYPES.LINE],
+    'chi-sq-cit-media': [PLOT_TYPES.LINE]},
     path)
 
 def get_conditions_to_polarization_multidata(path):
   cognitive_translate = ['0', '1', '2']
   epsilon = ['0', '1', '2']
-  institution_tactic = ['broadcast-brain', 'appeal-mean', 'appeal-median', 'appeal-mode']
+  institution_tactic = ['broadcast-brain', 'appeal-mean', 'appeal-median']
   media_ecosystem_dist = [ 'uniform', 'normal', 'polarized' ]
   # ba_m = ['3', '5', '10']
   ba_m = ['3' ]
@@ -1071,11 +1067,176 @@ def get_conditions_to_polarization_multidata(path):
     'chi-sq-cit-media': [PLOT_TYPES.LINE]},
     path)
 
+def logistic_regression_polarization(polarization_data):
+  '''
+  Run a logistic regression to fit polarization data given different
+  combinations of simulation parameters.
+
+  This analysis supports results in Rabb & Cowen, 2022 in Section 5
+  where we discuss the effect of parameters on polarization results
+  reported in Tables 3-5.
+
+  :param polarization_data: The result of polarization_analysis(multidata)
+  This contains 2 key dataframes -- one for polarizing results, one for
+  nonpolarizing ones
+  '''
+  polarizing = polarization_data['polarizing']
+  nonpolarizing = polarization_data['nonpolarizing']
+  polarizing['polarized'] = 1
+  nonpolarizing['polarized'] = 0
+  
+  df = polarizing.append(nonpolarizing)
+  df['epsilon'] = df['epsilon'].astype("int64")
+  df['translate'] = df['translate'].astype("int64")
+  df['graph_type'] = df['graph_type'].astype("category")
+  df['tactic'] = df['tactic'].astype("category")
+  df['citizen_dist'] = df['citizen_dist'].astype("category")
+  df['media_dist'] = df['media_dist'].astype("category")
+
+  # This model yields results discussed in Subsection 5.1, the effect
+  # of h_G, epsilon, and gamma on polarization results.
+  result = smf.logit("polarized ~ epsilon + translate + graph_type", data=df).fit()
+  print(result.summary())
+
+  # This model yields results discussed in Subsection 5.2, Table 5,
+  # the effect of C, I and gamma on polarization results. To select
+  # I = 'uniform' or I='polarized', different lines can be commented
+  # or uncommented.
+  df = df[df['tactic']=='broadcast-brain']
+  # df = df[df['media_dist']=='uniform']
+  df = df[df['media_dist']=='polarized']
+  result = smf.logit("polarized ~ epsilon + translate + graph_type + citizen_dist", data=df).fit()
+
+  print(result.summary())
+
+def polarization_results_by_tactic_exposure(polarization_data):
+  '''
+  Run an analysis to see how many results polarized vs nonpolarized for
+  parameter combinations of varphi (tactic) and gamma (translate).
+
+  This analysis supports Table 4 in Rabb & Cowen 2022.
+  
+  :param polarization_data: The result of polarization_analysis(multidata)
+  This contains 2 key dataframes -- one for polarizing results, one for
+  nonpolarizing ones
+  '''
+  polarizing = polarization_data['polarizing']
+  nonpolarizing = polarization_data['nonpolarizing']
+  polarizing['polarized'] = 1
+  nonpolarizing['polarized'] = 0
+  all_results = polarizing.append(nonpolarizing)
+
+  dfs = {
+    "all_broadcast": all_results[all_results['tactic'] == 'broadcast-brain'],
+    "all_mean": all_results[all_results['tactic'] == 'appeal-mean'],
+    "all_median": all_results[all_results['tactic'] == 'appeal-median'],
+  }
+
+  gamma_values = [0,1,2]
+  proportions = {}
+  for (df_name, df) in dfs.items():
+    print(f'{df_name}\n==========')
+    for gamma in gamma_values:
+      partition_polarized = df.query(f'translate=="{gamma}" and polarized==1')
+      partition_nonpolarized = df.query(f'translate=="{gamma}" and polarized==0')
+      partition_all = df.query(f'translate=="{gamma}"')
+      
+      # Use this line to report percent of results that are polarized
+      proportions[(gamma)] = {'polarized': len(partition_polarized) / len(partition_all), 'nonpolarized': len(partition_nonpolarized) / len(partition_all) }
+      
+      # Use this line to report number of results that are polarized
+      # proportions[(gamma)] = {'polarized': len(partition_polarized), 'nonpolarized': len(partition_nonpolarized) }
+
+
+def polarization_results_by_fragmentation_exposure(polarization_data):
+  '''
+  Run an analysis to see how many results polarized vs nonpolarized for
+  parameter combinations of h_G (homophily), epislon, and gamma (translate).
+
+  This analysis supports Table 3 in Rabb & Cowen 2022.
+  
+  :param polarization_data: The result of polarization_analysis(multidata)
+  This contains 2 key dataframes -- one for polarizing results, one for
+  nonpolarizing ones
+  '''
+  polarizing = polarization_data['polarizing']
+  nonpolarizing = polarization_data['nonpolarizing']
+  polarizing['polarized'] = 1
+  nonpolarizing['polarized'] = 0
+  all_results = polarizing.append(nonpolarizing)
+
+  dfs = {
+    "all_regular": all_results[all_results['graph_type'] == 'barabasi-albert'],
+    "all_homophilic": all_results[all_results['graph_type'] == 'ba-homophilic'],
+  }
+
+  epsilon_values = [0,1,2]
+  gamma_values = [0,1,2]
+  proportions = {}
+  for (df_name, df) in dfs.items():
+    print(f'{df_name}\n==========')
+    for epsilon in epsilon_values:
+      for gamma in gamma_values:
+        partition_polarized = df.query(f'epsilon=="{epsilon}" and translate=="{gamma}" and polarized==1')
+        partition_nonpolarized = df.query(f'epsilon=="{epsilon}" and translate=="{gamma}" and polarized==0')
+        partition_all = df.query(f'epsilon=="{epsilon}" and translate=="{gamma}"')
+
+        # Use this line to report percent of results that are polarized
+        proportions[(epsilon,gamma)] = {'polarized': len(partition_polarized) / len(partition_all), 'nonpolarized': len(partition_nonpolarized) / len(partition_all) }
+
+        # Use this line to report number of results that are polarized
+        # proportions[(epsilon,gamma)] = {'polarized': len(partition_polarized), 'nonpolarized': len(partition_nonpolarized) }
+
+def polarization_results_by_broadcast_distributions(polarization_data):
+  '''
+  Run an analysis to see how many results polarized vs nonpolarized for
+  parameter gamma (translate), citizen distribution and institution
+  distribution.
+
+  This analysis supports Table 5 in Rabb & Cowen 2022.
+  
+  :param polarization_data: The result of polarization_analysis(multidata)
+  This contains 2 key dataframes -- one for polarizing results, one for
+  nonpolarizing ones
+  '''
+  polarizing = polarization_data['polarizing']
+  nonpolarizing = polarization_data['nonpolarizing']
+  polarizing['polarized'] = 1
+  nonpolarizing['polarized'] = 0
+  all_results = polarizing.append(nonpolarizing)
+
+  dfs = {
+    "translate_0": all_results.query("translate=='0' and tactic=='broadcast-brain'"),
+    "translate_1": all_results.query("translate=='1' and tactic=='broadcast-brain'"),
+    "translate_2": all_results.query("translate=='2' and tactic=='broadcast-brain'"),
+  }
+
+  dist_values = ['uniform','normal','polarized']
+  proportions = {}
+  for (df_name, df) in dfs.items():
+    print(f'{df_name}\n==========')
+    for cit_dist in dist_values:
+      for inst_dist in dist_values:
+        partition_polarized = df.query(f'citizen_dist=="{cit_dist}" and media_dist=="{inst_dist}" and polarized==1')
+        partition_nonpolarized = df.query(f'citizen_dist=="{cit_dist}" and media_dist=="{inst_dist}" and polarized==0')
+        partition_all = df.query(f'citizen_dist=="{cit_dist}" and media_dist=="{inst_dist}"')
+
+        # Use this line to report percent of results that are polarized
+        proportions[(cit_dist,inst_dist)] = {'polarized': len(partition_polarized) / len(partition_all), 'nonpolarized': len(partition_nonpolarized) / len(partition_all) }
+
+        # Use this line to report number of results that are polarized
+        # proportions[(cit_dist,inst_dist)] = {'polarized': len(partition_polarized), 'nonpolarized': len(partition_nonpolarized) }
+
+    print(proportions)
+ 
 def polarization_stability_analysis(multidata):
   '''
   Analyze each individual run of the polarization experiment
   to see if its individual runs polarization result match
   that of the mean of the results.
+
+  This analysis supports the second to last paragraph of Section 4
+  in Rabb & Cowen, 2022.
 
   :param multidata: Multidata gathered from the experiment.
   '''
@@ -1221,7 +1382,6 @@ def polarizing_results_analysis_by_param(df, params):
 
   # return combos
 
-
 def process_polarizing_conditions_cognitive(path):
   cognitive_translate = ['0']
   epsilon = ['0', '1', '2', '3']
@@ -1259,301 +1419,3 @@ def process_nonpolarizing_conditions_cognitive(path):
     'homophily': [PLOT_TYPES.LINE],
     'chi-sq-cit-media': [PLOT_TYPES.LINE]},
     path)
-
-'''
-Process charts for the simple-complex comparison: the experiment where one
-media agent tries to sway the entire population. It runs each contagion type for
-each of three message files 10 times. This creates aggregate charts
-for each of the 6 combinations.
-'''
-def process_simple_complex_exp_outputs(path):
-  contagion_types = [ 'simple', 'complex' ]
-  message_files = [ '50-50', 'default', 'gradual' ]
-
-  process_exp_outputs(
-    [contagion_types,message_files],
-    {'percent-agent-beliefs': [PLOT_TYPES.LINE, PLOT_TYPES.STACK]},
-    path)
-
-'''
-Process data for the cognitive contagion function experiments. This generates
-plots for nine different functions: three variations of linear, threshold, and
-sigmoid.
-'''
-def process_cognitive_exp_outputs(path):
-  cognitive_fns = [ 'linear-mid', 'linear-gullible', 'linear-stubborn', 'sigmoid-gullible', 'sigmoid-mid', 'sigmoid-stubborn', 'threshold-mid', 'threshold-gullible', 'threshold-stubborn' ]
-  message_files = [ '50-50', 'default', 'gradual' ]
-
-  process_exp_outputs(
-    [cognitive_fns,message_files],
-    {'percent-agent-beliefs': [PLOT_TYPES.LINE, PLOT_TYPES.STACK]},
-    path)
-
-'''
-Process data for the between-graphs experiments: those that run...
-  CONTAGION_METHOD X MESSAGES X GRAPH_TYPE
-'''
-def process_graph_exp_outputs(path):
-  brain_types = ['discrete']
-  contagion_types = [ 'simple', 'complex', 'cognitive' ]
-  cognitive_fns = [ 'sigmoid-stubborn' ]
-  message_files = [ '50-50', 'default', 'gradual' ]
-  graph_types = [ 'erdos-renyi', 'watts-strogatz', 'barabasi-albert' ]
-  media_ecosystem = [ 'two-polarized' ]
-  media_tactics = [ 'predetermined' ]
-
-  process_exp_outputs(
-    [media_tactics,media_ecosystem,brain_types,contagion_types,message_files,cognitive_fns,graph_types],
-    {'percent-agent-beliefs': [PLOT_TYPES.LINE, PLOT_TYPES.STACK]},
-    path)
-
-'''
-Process data for the between-graphs experiments: those that run...
-  CONTAGION_METHOD X MESSAGES X GRAPH_TYPE
-'''
-def process_graph_exp_outputs_w_res(path):
-  resolutions = [2, 3, 5, 7, 9, 16, 32, 64]
-  # brain_types = ['discrete', 'continuous']
-  brain_types = ['discrete']
-  contagion_types = [ 'simple', 'complex', 'cognitive' ]
-  cognitive_fns = [ 'sigmoid-stubborn' ]
-  message_files = [ '50-50', 'default', 'gradual' ]
-  graph_types = [ 'erdos-renyi', 'watts-strogatz', 'barabasi-albert', 'mag' ]
-
-  for res in resolutions:
-    process_exp_outputs(
-      [brain_types,contagion_types,message_files,cognitive_fns,graph_types],
-      {'percent-agent-beliefs': [PLOT_TYPES.LINE, PLOT_TYPES.STACK]},
-      f'{path}-{res}')
-
-  # for bt in brain_types:
-  #   for ct in contagion_types:
-  #     for cf in cognitive_fns:
-  #       for mf in message_files:
-  #         for gt in graph_types:
-  #           for res in resolutions: 
-  #             if not os.path.isdir(f'{path}-{res}/{bt}/results'):
-  #               os.mkdir(f'{path}-{res}/{bt}/results')
-  #             (multi_data, props, model_params) = process_multi_chart_data(f'{path}-{res}/{bt}/{ct}/{mf}/{cf}/{gt}', 'percent-agent-beliefs')
-  #             plot_multi_chart_data(multi_data, props, f'{path}-{res}/{bt}/results',f'{ct}-{mf}-{cf}-{gt}-agg-chart')
-
-def simple_contagion_param_test(multi_data):
-  '''
-  Perform a check to see when the means of a multi_data timeseries for belief
-  value 6 cross a threshold of 0.95 (adopted by most of the population).
-
-  :param multi_data: A dictionary of timeseries data arrays keyed by belief value.
-  '''
-  threshold = 0.9
-  data = multi_data['6'].mean(0)
-  t = np.where(data > threshold)
-  # return above_threshold
-  return t[0][0] if t[0].size > 0 else -1
-
-'''
-Process data for the simple contagion param experiments
-'''
-def process_contagion_param_outputs(path):
-  # resolutions = [2, 3, 5, 7, 9, 16, 32, 64]
-  # brain_types = ['discrete', 'continuous']
-  param_vals = [ i/100 for i in range(5, 100, 5) ]
-  brain_types = ['discrete']
-  # message_files = [ '50-50', 'default', 'gradual' ]
-  message_files = [ 'default' ]
-  graph_types = [ 'erdos-renyi', 'watts-strogatz', 'barabasi-albert' ]
-
-  param_sweep_df = []
-  for pv in param_vals:
-    for bt in brain_types:
-      if not os.path.isdir(f'{path}/{bt}'):
-        os.mkdir(f'{path}/{bt}')
-      if not os.path.isdir(f'{path}/{bt}/results'):
-        os.mkdir(f'{path}/{bt}/results')
-      for mf in message_files:
-        param_sweep_values = {'p': pv}
-        for gt in graph_types:
-          (multi_data, props, model_params) = process_multi_chart_data(f'{path}/{pv}/{bt}/{mf}/{gt}', 'percent-agent-beliefs')
-          # plot_multi_chart_data(multi_data, props, f'{path}/{bt}/results',f'{pv}-{mf}-{gt}-agg-chart')
-          param_sweep_values[gt] = simple_contagion_param_test(multi_data)
-        param_sweep_df.append(param_sweep_values)
-  return pd.DataFrame(param_sweep_df)
-
-'''
-Do statistical correlation measures for the between-graphs experiments
-'''
-def stats_on_graph_exp_outputs(path, generate_graphs=True):
-  contagion_types = [ 'simple', 'complex', 'cognitive' ]
-  cognitive_fns = [ 'sigmoid-stubborn' ]
-  message_files = [ 'default' ]
-  graph_types = [ 'erdos-renyi', 'watts-strogatz', 'barabasi-albert', 'mag' ]
-
-  if not os.path.isdir(f'{path}/results'):
-    os.mkdir(f'{path}/results')
-
-  multi_datas = {}
-  results = pd.DataFrame()
-  for ct in contagion_types:
-    for cf in cognitive_fns:
-      for mf in message_files:
-        for gt in graph_types:
-          # For now, since there are no differences in cf and mf...
-          # returns in form of (multi_data, props, model_params)
-          multi_datas[(ct,gt)] = process_multi_chart_data(f'{path}/{ct}/{mf}/{cf}/{gt}', 'percent-agent-beliefs')
-
-  for ct in contagion_types:
-    gt_by_gt = itertools.product(graph_types, repeat=2)
-    for pair in gt_by_gt:
-      if pair[0] is pair[1]: continue
-      key_1 = (ct,pair[0])
-      key_2 = (ct,pair[1])
-      multi_data_1 = multi_datas[key_1][0]
-      multi_data_2 = multi_datas[key_2][0]
-      sim_props = multi_datas[key_1][2]
-
-      result = {'contagion_type': ct, 'graph_1': pair[0], 'graph_2': pair[1]}
-
-      # Run Chi-squared tests
-      chi2_data = chi_sq_test_multi_data(multi_data_1, multi_data_2, int(sim_props['n']))
-      # results[ct_gt_key]['chi2_data'] = chi2_data
-      result['chi2_global'] = chi_sq_global(chi2_data)
-
-      if generate_graphs:
-        plot_chi_sq_data(chi2_data, multi_datas[key_1][1], f'{ct} contagion on {pair[0]} x {pair[1]}', f'{path}/results', f'chi2_{ct}_{pair[0]}-{pair[1]}.png')
-  
-      # Run Pearson correlation tests
-      result['pearson'] = corr_multi_data(multi_data_1, multi_data_2)
-      result['pearson_avg'] = aggregate_corr(result['pearson'])
-      results = results.append(result, ignore_index=True)
-
-  return results
-
-'''
-Do statistical correlation measures for the between-simulation run experiments
-'''
-def stats_on_simulation_run_outputs(path, generate_graphs=True):
-  contagion_types = [ 'simple', 'complex', 'cognitive' ]
-  cognitive_fns = [ 'sigmoid-stubborn' ]
-  message_files = [ 'default', '50-50', 'gradual' ]
-  graph_types = [ 'erdos-renyi', 'watts-strogatz', 'barabasi-albert', 'mag' ]
-  simulation_runs = [10, 50, 100]
-
-  multi_datas = {}
-  results = pd.DataFrame()
-  for sr in simulation_runs:
-    for ct in contagion_types:
-      for cf in cognitive_fns:
-        for mf in message_files:
-          for gt in graph_types:
-            # For now, since there are no differences in cf...
-            # returns in form of (multi_data, props, model_params)
-            multi_datas[(ct,mf,gt,sr)] = process_multi_chart_data(f'{path}-{sr}/discrete/{ct}/{mf}/{cf}/{gt}', 'percent-agent-beliefs')
-
-  for ct in contagion_types:
-    for mf in message_files:
-      for gt in graph_types:
-        sr_by_sr = itertools.product(simulation_runs, repeat=2)
-        res_set = []
-        for pair in sr_by_sr:
-          if pair[0] is pair[1]: continue
-          if {pair[0], pair[1]} in res_set: continue
-          key_1 = (ct,mf,gt,pv,pair[0])
-          key_2 = (ct,mf,gt,pv,pair[1])
-
-          multi_data_1 = multi_datas[key_1][0]
-          multi_data_2 = multi_datas[key_2][0]
-          sim_props = multi_datas[key_1][2]
-
-          result = {'contagion_type': ct, 'message_file': mf, 'graph_type': gt, 'sim_runs_1': pair[0], 'sim_runs_2': pair[1]}
-
-          # Run Chi-squared tests
-          (pre_chi2_data, chi2_data) = chi_sq_test_multi_data(multi_data_1, multi_data_2, int(sim_props['n']))
-          result['pre_chi2'] = pre_chi2_data
-          result['chi2_data'] = chi2_data
-          result['chi2_global'] = chi_sq_global(chi2_data)
-
-          if generate_graphs:
-            if not os.path.isdir(f'{path}-{pair[0]}-{pair[1]}'):
-              os.mkdir(f'{path}-{pair[0]}-{pair[1]}')
-              os.mkdir(f'{path}-{pair[0]}-{pair[1]}/results')
-            plot_chi_sq_data(chi2_data, multi_datas[key_1][1], f'{ct} contagion on {pair[0]} x {pair[1]}', f'{path}-{pair[0]}-{pair[1]}/results', f'chi2_{ct}-{mf}-{gt}-{pair[0]}-{pair[1]}.png')
-
-          # Run Pearson correlation tests
-          result['pearson'] = corr_multi_data(multi_data_1, multi_data_2)
-          result['pearson_avg'] = aggregate_corr(result['pearson'])
-          results = results.append(result, ignore_index=True)
-          res_set.append({pair[0], pair[1]})
-
-  return results
-
-'''
-Do statistical correlation measures for the between-simulation run experiments
-'''
-def correlations_on_param_sweep(path, generate_graphs=True):
-  # For simple contagion
-  # message_files = [ 'default' ]
-
-  # For complex contagion
-  message_files = [ 'gradual' ]
-
-  graph_types = [ 'erdos-renyi', 'watts-strogatz', 'barabasi-albert' ]
-
-  simulation_runs = [10, 50, 100]
-  param_vals = [ i/100 for i in range(5, 100, 5) ]
-
-  multi_datas = {}
-  results = pd.DataFrame()
-  for sr in simulation_runs:
-    for mf in message_files:
-      for gt in graph_types:
-        # For now, since there are no differences in cf...
-        # returns in form of (multi_data, props, model_params)
-        for pv in param_vals:
-          multi_datas[(mf,gt,pv,sr)] = process_multi_chart_data(f'{path}-{sr}/{str(pv)}/discrete/{mf}/{gt}', 'percent-agent-beliefs')
-
-  for mf in message_files:
-    for gt in graph_types:
-      for pv in param_vals:
-        sr_by_sr = itertools.product(simulation_runs, repeat=2)
-        res_set = []
-        for pair in sr_by_sr:
-          if pair[0] is pair[1]: continue
-          if {pair[0], pair[1]} in res_set: continue
-          
-          key_1 = (mf,gt,pv,pair[0])
-          key_2 = (mf,gt,pv,pair[1])
-          multi_data_1 = multi_datas[key_1][0]
-          multi_data_2 = multi_datas[key_2][0]
-
-          sim_props = multi_datas[key_1][2]
-
-          if not os.path.isdir(f'{path}-{pair[0]}/results'):
-            os.mkdir(f'{path}-{pair[0]}/results')
-          plot_multi_chart_data(multi_data_1, multi_datas[key_1][1], f'{path}-{pair[0]}/results',f'{pv}-{mf}-{gt}-agg-chart')
-
-          if not os.path.isdir(f'{path}-{pair[1]}/results'):
-            os.mkdir(f'{path}-{pair[1]}/results')
-          plot_multi_chart_data(multi_data_2, multi_datas[key_2][1], f'{path}-{pair[1]}/results',f'{pv}-{mf}-{gt}-agg-chart')
-
-          result = {'param_val': pv, 'message_file': mf, 'graph_type': gt, 'sim_runs_1': pair[0], 'sim_runs_2': pair[1]}
-
-          # Run Chi-squared tests
-          (pre_chi2_data, chi2_data) = chi_sq_test_multi_data(multi_data_1, multi_data_2, int(sim_props['n']))
-          result['pre_chi2'] = pre_chi2_data
-          result['chi2_data'] = chi2_data
-          result['chi2_global'] = chi_sq_global(chi2_data)
-
-          if generate_graphs:
-            if not os.path.isdir(f'{path}-{pair[0]}-{pair[1]}'):
-              os.mkdir(f'{path}-{pair[0]}-{pair[1]}')
-              os.mkdir(f'{path}-{pair[0]}-{pair[1]}/{pv}')
-              os.mkdir(f'{path}-{pair[0]}-{pair[1]}/{pv}/results')
-            plot_chi_sq_data(chi2_data, multi_datas[key_1][1], f'contagion on {pair[0]} x {pair[1]}', f'{path}-{pair[0]}-{pair[1]}/{pv}/results', f'chi2_simple-{mf}-{gt}-{pair[0]}-{pair[1]}.png')
-
-          # Run Pearson correlation tests
-          result['pearson'] = corr_multi_data(multi_data_1, multi_data_2)
-          result['pearson_avg'] = aggregate_corr(result['pearson'])
-          results = results.append(result, ignore_index=True)
-          res_set.append({pair[0], pair[1]})
-
-  results.to_csv(f'{path}.csv')
-  return results
