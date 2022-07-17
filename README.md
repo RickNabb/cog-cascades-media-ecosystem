@@ -14,7 +14,38 @@ TO BE FILLED IN
 
 ### Using Netlogo Behaviorspace
 
-TO BE FILLED IN
+To run simulations and generate polarization results, open the `cog-cascades-media-ecosystem.nlogo` file in NetLogo, and go to *Tools -> BehaviorSpace*. One experiment is called *conditions-to-polarization_cognitive*, and is the one we used for results in Rabb & Cowen, 2022. For our paper results, we used the following parameter settings:
+
+```
+["belief-resolution" 7]
+["tick-end" 100]
+["brain-type" "discrete"]
+["N" 100]
+["contagion-on?" false]
+["cognitive-fn" "sigmoid-stubborn"]
+["spread-type" "cognitive"]
+["cognitive-scalar" 20]
+["cognitive-exponent" 4]
+["cognitive-translate" 0 1 2]
+["institution-tactic" "broadcast-brain" "appeal-mean" "appeal-median"]
+["media-ecosystem" "distribution"]
+["media-ecosystem-dist" "uniform" "normal" "polarized"]
+["media-dist-normal-mean" 3]
+["media-dist-normal-std" 1]
+["media-ecosystem-n" 20]
+["message-repeats" 1]
+["citizen-init-dist" "uniform" "normal" "polarized"]
+["cit-init-normal-mean" 3]
+["cit-init-normal-std" 1]
+["epsilon" 0 1 2]
+["graph-type" "barabasi-albert" "ba-homophilic"]
+["ba-m" 3]
+["repetition" [0 1 2]]
+```
+
+We also set `Repetitions` to 5 and `Time Limit` to 100.
+
+Running this experiment will generate directories with simulation results in the following directory naming scheme: `ROOT/cognitive-translate/institution-tactic/media-ecosystem-dist/citizen-init-dist/epsilon/graph-type/ba-m/repetition`. Each unique parameter combination will output 5 simulation results to that directory. Our data analysis is set to read directories in this fashion and aggregate results based off of these directory structures. If the structure of directories for output is changed, then the analysis functions will need to be changed as well.
 
 ### Using data from Rabb & Cowen 2022
 
@@ -26,11 +57,21 @@ To prepare your Python environment for doing this analysis, you must first impor
 from data import *
 ```
 
-First, our result data must be downloaded, unzipped, and placed in a directory. Then, to get the data into a usable dataframe that aggregates results over simulation trials, run the following code:
+If you want to use full simulation result data it must either be requested from the authors (email above), or generated with NetLogo's BehaviorSpace. To run simulations and generate polarization data, refer to the section above.
+
+Then, to get the data into a usable dataframe that aggregates results over simulation trials, run the following code:
 
 ```py
 multidata = get_conditions_to_polarize_multidata(<YOUR_PATH>)
 polarization_data = polarization_analysis(multidata)
+```
+
+Alternatively, we provide the dataframe results of running `polarization_analysis()` in the `data` directory in this GitHub repository. Simply use `pandas.load_csv()` to load the data frame. If this is the method you use, then loading both `polarizing-df.csv` and `nonpolarizing-df.csv` into a dictionary called `polarization_data` as follows will allow the rest of the README instructions to work:
+
+```py
+polarized_df = pd.read_csv('data/polarizing-df.csv')
+nonpolarized_df = pd.read_csv('data/nonpolarizing-df.csv')
+polarization_data = { 'polarizing': polarized_df, 'nonpolarizing': nonpolarized_df }
 ```
 
 `polarization_data` will then be dictionary containing several `pandas` dataframes which you can use to see which results were classified as polarized and nonpolarized. These dataframes can be queried to analyze results of the simulations. Importantly, the dataframes contain the *means* of parameter combinations' results -- since there were 5 simulation trials per parameter combination, each resultant polarization measure is based off of the mean polarization values across 5 trials. The dataframe can be accessed and analyzed as follows:
