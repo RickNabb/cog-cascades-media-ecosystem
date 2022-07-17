@@ -16,11 +16,9 @@ TO BE FILLED IN
 
 TO BE FILLED IN
 
-### Using data from Rabb & Cowen paper
+### Using data from Rabb & Cowen 2022
 
-#### Analysis of partition sizes (Table 3)
-
-Our first major result, displayed in Table 3, was the distribution of polarized and nonpolarized results further partitioned by epsilon, gamma, h_G, and phi.
+#### Analysis of polarization data
 
 To prepare your Python environment for doing this analysis, you must first import the `data.py` file:
 
@@ -35,33 +33,60 @@ multidata = get_conditions_to_polarize_multidata(<YOUR_PATH>)
 polarization_data = polarization_analysis(multidata)
 ```
 
-`polarization_data` will then be dictionary containing severl `pandas` dataframes which you can use to see which results were classified as polarized and nonpolarized. These dataframes can be queried to measure partition sizes. For an example of this, see the function `polarizing_results_analysis()`. An example of code that would give the proportions of polarized data in Table 3 for the *epsilon* parameter is the following:
+`polarization_data` will then be dictionary containing several `pandas` dataframes which you can use to see which results were classified as polarized and nonpolarized. These dataframes can be queried to analyze results of the simulations. Importantly, the dataframes contain the *means* of parameter combinations' results -- since there were 5 simulation trials per parameter combination, each resultant polarization measure is based off of the mean polarization values across 5 trials. The dataframe can be accessed and analyzed as follows:
 
 ```py
 polarized_df = polarization_data['polarizing']
-epsilon_values = [0,1,2]
-for epsilon in epsilon_values:
-  partition = df.query(f'epsilon=="{epsilon}"')
-  print(f'Portion for epsilon={epsilon}: {len(partition)/len(polarized_df)}')
+print(polarized_df.columns)
+>> Index(['translate', 'tactic', 'media_dist', 'citizen_dist', 'epsilon',
+       'graph_type', 'ba-m', 'repetition', 'lr-intercept', 'lr-slope', 'var',
+       'start', 'end', 'delta', 'max', 'polarized'],
+      dtype='object')
+
+print(polarized_df.iloc[0])
+>> translate                     0
+>> tactic          broadcast-brain
+>> media_dist              uniform
+>> citizen_dist             normal
+>> epsilon                       0
+>> graph_type      barabasi-albert
+>> ba-m                          3
+>> repetition                    1
+>> lr-intercept            2.99003
+>> lr-slope               0.025486
+>> var                    0.181005
+>> start                  3.025278
+>> end                    4.071444
+>> delta                  1.046166
+>> max                    4.193444
+>> polarized                     1
+>> Name: 3, dtype: object
 ```
 
-One can imagine how a similar method could be used to, for example, retrieve the parition proportions for broadcast tactic, *phi*. 
+Trends in the data can be analyzed through a variety of methods, and we will explain the ones we used below.
 
-#### Analysis of more fine-grained partition sizes (Table 4)
+#### Analysis of effect of fragmentation & exposure parameters (Table 3)
 
-Our second result, that different media tactics polarize or do not based on the initial institution and citizen distributions, can be gathered using similar methods to the above section. If you follow the same steps to get `polarization_data`, you could arrive at the polarized portion of the table in the following manner:
+Code that we used for this analysis is contained in the `polarization_results_by_fragmentation_exposure(polarization_data)` function in `data.py`. It finds points in the dataset that match certain values of `epsilon`, `gamma (translate)` and `h_G (homophily)`. One command that can be used to query the dataset in that manner is:
 
 ```py
-polarized_df = polarization_data['polarizing']
-tactics = ['appeal-mean', 'appeal-median', 'broadcast']
-distributions = ['uniform','normal','polarized']
-
-for tactic in tactics:
-  for i_dist in distributions:
-    for c_dist in distributions:
-      partition = polarized_df.query(f'tactic=={tactic} and media_dist=={i_dist} and citizen_dist=={c_dist}')
-      print(f'Partition size for ({tactic},{i_dist},{c_dist}): {len(partition)}')
+results = polarized_df.query("epsilon==0 and translate==1 and graph_type=='barabasi-albert'")
 ```
+
+This set of rows can be used to determine what portion polarized and what portion failed to polarize. This is the basis of our analyses.
+
+#### Other analyses of effects in Tables 4 & 5
+
+The same techinque as above is utilized to generate the results contained in Tables 4 and 5. The following functions can be run to replicate those results:
+
+```py
+polarization_results_by_tactic_exposure(polarization_data) # Table 4
+polarization_results_by_broadcast_distributions(polarization_data) # Table 5
+```
+
+#### Logistic regressions (Section 5 -- Results)
+
+Our logistic regressions were performed with the function `logistic_regression_polarization(polarization_data)` in `data.py`. This was used to determine effects on polarization given certain simulation parameters.
 
 #### Generating visual charts
 
